@@ -851,6 +851,7 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             if (rowItem.isDirectory) {
                 popupMenu.getMenu().findItem(R.id.open_with).setVisible(false);
                 popupMenu.getMenu().findItem(R.id.share).setVisible(false);
+                popupMenu.getMenu().findItem(R.id.rename_as_jpg).setVisible(false);
 
                 if (mainFrag.getMainActivity().mReturnIntent) {
                     popupMenu.getMenu().findItem(R.id.return_select).setVisible(true);

@@ -29,6 +29,9 @@
         android:id="@+id/rename"
         android:title="@string/rename" />
     <item
+        android:id="@+id/rename_as_jpg"
+        android:title="@string/rename_as_jpg"/>
+    <item
         android:id="@+id/encrypt"
         android:title="@string/crypt_encrypt"
         android:visible="false" />

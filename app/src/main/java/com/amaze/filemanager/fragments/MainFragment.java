@@ -434,6 +434,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
             if (openMode == OpenMode.SMB)
                 smbPath = savedInstanceState.getString("SmbPath");
             LIST_ELEMENTS = savedInstanceState.getParcelableArrayList("list");
+            if (LIST_ELEMENTS == null) LIST_ELEMENTS = new ArrayList<>(0);
             CURRENT_PATH = cur;
             folder_count = savedInstanceState.getInt("folder_count", 0);
             file_count = savedInstanceState.getInt("file_count", 0);

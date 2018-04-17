@@ -16,7 +16,7 @@
     <dimen name="fab_margin">16dp</dimen>
     <dimen name="fab_height">56dp</dimen>
     <dimen name="minimal_row_height">100dp</dimen>
-    <dimen name="minimal_row_size">72dp</dimen>
+    <dimen name="minimal_row_size">60dp</dimen>
     <dimen name="minimal_icon_size">40dp</dimen>
     <dimen name="minimal_icon_parent_width">56dp</dimen>
     <dimen name="tick_icon_size">20dp</dimen>
@@ -42,6 +42,7 @@
     <dimen name="spacebetweenitems_properties_dialog">10dp</dimen>
 
     <dimen name="list_header_height">48dp</dimen>
+    <dimen name="list_header_top_bottom_padding">8dp</dimen>
     <dimen name="list_header_textsize">16sp</dimen>
 
 </resources>

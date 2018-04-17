@@ -40,7 +40,7 @@
 
     <application
         android:name=".utils.application.AppConfig"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_launcher_round"
         android:roundIcon="@mipmap/ic_launcher_round"
         tools:replace="android:label"
         android:label="Amaze"

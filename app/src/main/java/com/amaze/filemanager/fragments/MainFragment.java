@@ -402,7 +402,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
             outState.putInt("index", index);
             outState.putInt("top", top);
-            outState.putParcelableArrayList("list", LIST_ELEMENTS);
+//            outState.putParcelableArrayList("list", LIST_ELEMENTS);
             outState.putString("CURRENT_PATH", CURRENT_PATH);
             outState.putBoolean("selection", selection);
             outState.putInt("openMode", openMode.ordinal());

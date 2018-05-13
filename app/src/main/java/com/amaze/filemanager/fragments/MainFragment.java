@@ -74,6 +74,7 @@ import com.amaze.filemanager.adapters.data.LayoutElementParcelable;
 import com.amaze.filemanager.asynchronous.asynctasks.DeleteTask;
 import com.amaze.filemanager.asynchronous.asynctasks.LoadFilesListTask;
 import com.amaze.filemanager.asynchronous.handlers.FileHandler;
+import com.amaze.filemanager.asynchronous.services.CopyService;
 import com.amaze.filemanager.database.CloudHandler;
 import com.amaze.filemanager.database.CryptHandler;
 import com.amaze.filemanager.database.models.EncryptedEntry;
@@ -94,6 +95,7 @@ import com.amaze.filemanager.utils.DataUtils;
 import com.amaze.filemanager.utils.MainActivityHelper;
 import com.amaze.filemanager.utils.OTGUtil;
 import com.amaze.filemanager.utils.OpenMode;
+import com.amaze.filemanager.utils.ServiceWatcherUtil;
 import com.amaze.filemanager.utils.SmbStreamer.Streamer;
 import com.amaze.filemanager.utils.Utils;
 import com.amaze.filemanager.utils.cloud.CloudUtil;
@@ -1242,6 +1244,18 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
         getMainActivity().mainActivityHelper.rename(openMode, fileParcelable.getPath(),
                 CURRENT_PATH + "/" + fileParcelable.getName() + ".jpg", getActivity(),
                 getMainActivity().isRootExplorer());
+    }
+
+    public void changeMD5(HybridFileParcelable fileParcelable) {
+        Intent intent = new Intent(getActivity(), CopyService.class);
+        ArrayList<HybridFileParcelable> sourceFiles = new ArrayList<>();
+        sourceFiles.add(fileParcelable);
+        intent.putParcelableArrayListExtra(CopyService.TAG_COPY_SOURCES, sourceFiles);
+        intent.putExtra(CopyService.TAG_COPY_TARGET, fileParcelable.getPath());
+        intent.putExtra(CopyService.TAG_COPY_OPEN_MODE, OpenMode.FILE);
+        intent.putExtra(CopyService.TAG_COPY_MOVE, false);
+        intent.putExtra(CopyService.TAG_CREATE_COPY_AUTO_NAMING, true);
+        ServiceWatcherUtil.runService(getActivity(), intent);
     }
 
     public void computeScroll() {

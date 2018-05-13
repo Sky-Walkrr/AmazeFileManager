@@ -31,6 +31,10 @@
     <item
         android:id="@+id/rename_as_jpg"
         android:title="@string/rename_as_jpg"/>
+
+    <item
+        android:id="@+id/changeMd5"
+        android:title="@string/change_md5"/>
     <item
         android:id="@+id/encrypt"
         android:title="@string/crypt_encrypt"

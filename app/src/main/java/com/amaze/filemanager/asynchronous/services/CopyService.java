@@ -66,6 +66,7 @@ public class CopyService extends AbstractProgressiveService {
     public static final String TAG_COPY_OPEN_MODE = "MODE"; // target open mode
     public static final String TAG_COPY_MOVE = "move";
     private static final String TAG_COPY_START_ID = "id";
+    public static final String TAG_CREATE_COPY_AUTO_NAMING = "TAG_AUTO_CREATE_COPY";// 创建自动命名为"XX-副本"的拷贝
 
     public static final String TAG_BROADCAST_COPY_CANCEL = "copycancel";
 
@@ -85,6 +86,7 @@ public class CopyService extends AbstractProgressiveService {
     private long totalSize = 0L;
     private int totalSourceFiles = 0;
     private int sourceProgress = 0;
+    private boolean isCreateCopyAutoNaming;
 
     @Override
     public void onCreate() {
@@ -97,7 +99,8 @@ public class CopyService extends AbstractProgressiveService {
     public int onStartCommand(Intent intent, int flags, final int startId) {
 
         Bundle b = new Bundle();
-        isRootExplorer = intent.getBooleanExtra(TAG_IS_ROOT_EXPLORER ,false);
+        isRootExplorer = intent.getBooleanExtra(TAG_IS_ROOT_EXPLORER, false);
+        isCreateCopyAutoNaming = intent.getBooleanExtra(TAG_CREATE_COPY_AUTO_NAMING, false);
         ArrayList<HybridFileParcelable> files = intent.getParcelableArrayListExtra(TAG_COPY_SOURCES);
         String targetPath = intent.getStringExtra(TAG_COPY_TARGET);
         int mode = intent.getIntExtra(TAG_COPY_OPEN_MODE, OpenMode.UNKNOWN.ordinal());
@@ -254,6 +257,7 @@ public class CopyService extends AbstractProgressiveService {
         /**
          * Iterates through every file to find an encrypted file and update/add a new entry about it's
          * metadata in the database
+         *
          * @param sourceFile the file which is to be iterated
          */
         private void findAndReplaceEncryptedEntry(HybridFileParcelable sourceFile) {
@@ -429,7 +433,7 @@ public class CopyService extends AbstractProgressiveService {
                     }
                     targetFile.setLastModified(sourceFile.lastModified());
 
-                    if(progressHandler.getCancelled()) return;
+                    if (progressHandler.getCancelled()) return;
                     sourceFile.forEachChildrenFile(c, false, file -> {
                         HybridFile destFile = new HybridFile(targetFile.getMode(), targetFile.getPath(),
                                 file.getName(), file.isDirectory());
@@ -449,7 +453,25 @@ public class CopyService extends AbstractProgressiveService {
                     GenericCopyUtil copyUtil = new GenericCopyUtil(c);
 
                     progressHandler.setFileName(sourceFile.getName());
+                    if (isCreateCopyAutoNaming) {
+                        String autoName ;
+                        int dotPos = targetPath.lastIndexOf(".");
+                        if (dotPos > -1) {
+                            autoName = targetPath.substring(0, dotPos) + "-copy"
+                                    + targetPath.substring(dotPos, targetPath.length());
+                        } else {
+                            autoName = targetPath + "-copy";
+                        }
+                        targetFile.setPath(autoName);
+                    }
                     copyUtil.copy(sourceFile, targetFile);
+                    Log.d("CopyService", "--->copy finished, file path " + targetFile.getFile().getCanonicalPath());
+                    if (isCreateCopyAutoNaming) {
+                        String cmd = "echo md5modify >> " + targetFile.getFile().getCanonicalPath();
+                        String[] cmdline = { "sh", "-c", cmd };
+                        Runtime.getRuntime().exec(cmdline);
+                        Log.d("CopyService", "--->md5 changed?");
+                    }
                 }
             }
         }

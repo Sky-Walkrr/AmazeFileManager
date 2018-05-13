@@ -46,7 +46,7 @@ import android.os.HandlerThread;
 import android.service.quicksettings.TileService;
 import android.support.annotation.NonNull;
 import android.support.design.widget.AppBarLayout;
-import android.support.design.widget.CoordinatorLayout;
+import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat.OnRequestPermissionsResultCallback;
 import android.support.v4.app.Fragment;
@@ -65,7 +65,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.afollestad.materialdialogs.DialogAction;
@@ -261,6 +260,8 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
     private static final int REQUEST_CODE_CLOUD_LIST_KEY = 5472;
 
     private PasteHelper pasteHelper;
+    private FloatingActionButton fabPaste;
+    private MenuItem paste;
 
     /**
      * Called when the activity is first created.
@@ -277,8 +278,14 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
         AppConfig.setActivityContext(con);
 
         setContentView(R.layout.main_toolbar);
+        fabPaste = findViewById(R.id.fabPaste);
+        fabPaste.setOnClickListener( view -> {
+            if (paste != null) {
+                onOptionsItemSelected(paste);
+            }
+        });
         appbar = new AppBar(this, getPrefs(), queue -> {
-            if(!queue.isEmpty()) {
+            if (!queue.isEmpty()) {
                 mainActivityHelper.search(getPrefs(), queue);
             }
         });
@@ -383,7 +390,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                         //Commit the transaction
                         transaction.commit();
                         supportInvalidateOptionsMenu();
-                    }  else if (intent.getAction() != null &&
+                    } else if (intent.getAction() != null &&
                             intent.getAction().equals(TileService.ACTION_QS_TILE_PREFERENCES)) {
                         // tile preferences, open ftp fragment
 
@@ -439,6 +446,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
 
     /**
      * Checks for the action to take when Amaze receives an intent from external source
+     *
      * @param intent
      */
     private void checkForExternalIntent(Intent intent) {
@@ -619,7 +627,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                     rv.add(s);
             }
         }
-        if (isRootExplorer()){
+        if (isRootExplorer()) {
             rv.add("/");
         }
         File usb = getUsbDrive();
@@ -633,11 +641,12 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
 
     /**
      * Method finds whether a USB device is connected or not
+     *
      * @return true if device is connected
      */
     private boolean isUsbDeviceConnected() {
         UsbManager usbManager = (UsbManager) getSystemService(USB_SERVICE);
-        if (usbManager.getDeviceList().size()!=0) {
+        if (usbManager.getDeviceList().size() != 0) {
             // we need to set this every time as there is no way to know that whether USB device was
             // disconnected after closing the app and another one was connected
             // in that case the URI will obviously change
@@ -674,7 +683,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                 getCurrentMainFragment().goBack();
             }
         } else if (fragment instanceof CompressedExplorerFragment) {
-            CompressedExplorerFragment compressedExplorerFragment = (CompressedExplorerFragment)  getFragmentAtFrame();
+            CompressedExplorerFragment compressedExplorerFragment = (CompressedExplorerFragment) getFragmentAtFrame();
             if (compressedExplorerFragment.mActionMode == null) {
                 if (compressedExplorerFragment.canGoBack()) {
                     compressedExplorerFragment.goBack();
@@ -715,8 +724,10 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
     public void invalidatePasteButton(MenuItem paste) {
         if (pasteHelper != null) {
             paste.setVisible(true);
+            fabPaste.show();
         } else {
             paste.setVisible(false);
+            fabPaste.hide();
         }
     }
 
@@ -796,7 +807,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
     public boolean onPrepareOptionsMenu(Menu menu) {
         MenuItem s = menu.findItem(R.id.view);
         MenuItem search = menu.findItem(R.id.search);
-        MenuItem paste = menu.findItem(R.id.paste);
+        paste = menu.findItem(R.id.paste);
         Fragment fragment = getFragmentAtFrame();
         if (fragment instanceof TabFragment) {
             appbar.setTitle(R.string.appbar_name);
@@ -811,7 +822,8 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                 else s.setTitle(R.string.listview);
                 appbar.getBottomBar().updatePath(ma.getCurrentPath(), ma.results,
                         MainActivityHelper.SEARCH_TEXT, ma.openMode, ma.folder_count, ma.file_count, ma);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+            }
 
             appbar.getBottomBar().setClickListener();
 
@@ -823,7 +835,8 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
             menu.findItem(R.id.history).setVisible(true);
             menu.findItem(R.id.sethome).setVisible(true);
             menu.findItem(R.id.sort).setVisible(true);
-            if (getBoolean(PREFERENCE_SHOW_HIDDENFILES)) menu.findItem(R.id.hiddenitems).setVisible(true);
+            if (getBoolean(PREFERENCE_SHOW_HIDDENFILES))
+                menu.findItem(R.id.hiddenitems).setVisible(true);
             menu.findItem(R.id.view).setVisible(true);
             menu.findItem(R.id.extract).setVisible(false);
             invalidatePasteButton(menu.findItem(R.id.paste));
@@ -1038,7 +1051,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putBoolean(KEY_DRAWER_SELECTED, drawer.isSomethingSelected());
-        if(pasteHelper != null) {
+        if (pasteHelper != null) {
             outState.putParcelable(PASTEHELPER_BUNDLE, pasteHelper);
         }
 
@@ -1141,7 +1154,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
 
         CryptHandler cryptHandler = new CryptHandler(this);
         cryptHandler.close();
-        
+
         SshConnectionPool.getInstance().expungeAllConnections();
 
         /*if (mainFragment!=null)
@@ -1187,7 +1200,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
     public MainFragment getCurrentMainFragment() {
         TabFragment tab = getTabFragment();
 
-        if(tab != null && tab.getCurrentTabFragment() instanceof MainFragment) {
+        if (tab != null && tab.getCurrentTabFragment() instanceof MainFragment) {
             return (MainFragment) tab.getCurrentTabFragment();
         } else return null;
     }
@@ -1214,7 +1227,8 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
             for (File f : parent.listFiles())
                 if (f.exists() && f.getName().toLowerCase().contains("usb") && f.canExecute())
                     return f;
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
 
         parent = new File("/mnt/sdcard/usbStorage");
         if (parent.exists() && parent.canExecute())
@@ -1247,8 +1261,9 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                 // Get Uri from Storage Access Framework.
                 treeUri = intent.getData();
                 // Persist URI - this is required for verification of writability.
-                if (treeUri != null) getPrefs().edit().putString(PreferencesConstants.PREFERENCE_URI,
-                        treeUri.toString()).commit();
+                if (treeUri != null)
+                    getPrefs().edit().putString(PreferencesConstants.PREFERENCE_URI,
+                            treeUri.toString()).commit();
             } else {
                 // If not confirmed SAF, or if still not writable, then revert settings.
                 /* DialogUtil.displayError(getActivity(), R.string.message_dialog_cannot_write_to_folder_saf, false, currentFolder);
@@ -1269,7 +1284,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                     break;
                 case DataUtils.COPY://copying
                     //legacy compatibility
-                    if(oparrayList != null && oparrayList.size() != 0) {
+                    if (oparrayList != null && oparrayList.size() != 0) {
                         oparrayListList = new ArrayList<>();
                         oparrayListList.add(oparrayList);
                         oparrayList = null;
@@ -1287,7 +1302,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                     break;
                 case DataUtils.MOVE://moving
                     //legacy compatibility
-                    if(oparrayList != null && oparrayList.size() != 0) {
+                    if (oparrayList != null && oparrayList.size() != 0) {
                         oparrayListList = new ArrayList<>();
                         oparrayListList.add(oparrayList);
                         oparrayList = null;
@@ -1326,7 +1341,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
             getPrefs().edit().putString(KEY_PREF_OTG, intent.getData().toString()).apply();
 
             drawer.closeIfNotLocked();
-            if(drawer.isLocked()) drawer.onDrawerClosed();
+            if (drawer.isLocked()) drawer.onDrawerClosed();
         } else if (requestCode == REQUEST_CODE_SAF && responseCode != Activity.RESULT_OK) {
             // otg access not provided
             drawer.resetPendingPath();
@@ -1362,7 +1377,8 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
         }
 
         fabBgView.setOnClickListener(view -> {
-            if (getAppbar().getSearchView().isEnabled()) getAppbar().getSearchView().hideSearchView();
+            if (getAppbar().getSearchView().isEnabled())
+                getAppbar().getSearchView().hideSearchView();
         });
 
         drawer.setDrawerHeaderBackground();
@@ -1383,7 +1399,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
             if (drawer.isLocked()) {
                 window.setStatusBarColor((skinStatusBar));
             } else window.addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-            if ( getBoolean(PREFERENCE_COLORED_NAVIGATION))
+            if (getBoolean(PREFERENCE_COLORED_NAVIGATION))
                 window.setNavigationBarColor(skinStatusBar);
         }
     }
@@ -1404,7 +1420,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
         if (SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             // for lollipop devices, the status bar color
             mainActivity.getWindow().setStatusBarColor(colorDrawable.getColor());
-            if ( getBoolean(PREFERENCE_COLORED_NAVIGATION))
+            if (getBoolean(PREFERENCE_COLORED_NAVIGATION))
                 mainActivity.getWindow().setNavigationBarColor(PreferenceUtils
                         .getStatusColor(colorDrawable.getColor()));
         } else if (SDK_INT == Build.VERSION_CODES.KITKAT_WATCH || SDK_INT == Build.VERSION_CODES.KITKAT) {
@@ -1646,12 +1662,12 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
         bundle.putString("username", userinfo.indexOf(':') > 0 ?
                 userinfo.substring(0, userinfo.indexOf(':')) : userinfo);
 
-        if(userinfo.indexOf(':') < 0) {
+        if (userinfo.indexOf(':') < 0) {
             bundle.putBoolean("hasPassword", false);
             bundle.putString("keypairName", utilsHandler.getSshAuthPrivateKeyName(path));
         } else {
             bundle.putBoolean("hasPassword", true);
-            bundle.putString("password", userinfo.substring(userinfo.indexOf(':')+1));
+            bundle.putString("password", userinfo.substring(userinfo.indexOf(':') + 1));
         }
         bundle.putBoolean("edit", edit);
         sftpConnectDialog.setArguments(bundle);
@@ -1774,8 +1790,8 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
     }
 
     @Override
-    public void onProgressUpdate(HybridFileParcelable val , String query) {
-        mainFragment.addSearchResult(val,query);
+    public void onProgressUpdate(HybridFileParcelable val, String query) {
+        mainFragment.addSearchResult(val, query);
     }
 
     @Override
@@ -1830,7 +1846,7 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
 
         Uri uri = Uri.withAppendedPath(Uri.parse("content://" + CloudContract.PROVIDER_AUTHORITY), "/keys.db/secret_keys");
 
-        String[] projection = new String[] {
+        String[] projection = new String[]{
                 CloudContract.COLUMN_ID,
                 CloudContract.COLUMN_CLIENT_ID,
                 CloudContract.COLUMN_CLIENT_SECRET_KEY
@@ -1865,10 +1881,10 @@ public class MainActivity extends ThemedActivity implements OnRequestPermissions
                     String ids[] = new String[cloudEntries.size() + 1];
 
                     ids[0] = 1 + "";
-                    for (int i=1; i<=cloudEntries.size(); i++) {
+                    for (int i = 1; i <= cloudEntries.size(); i++) {
 
                         // we need to get only those cloud details which user wants
-                        switch (cloudEntries.get(i-1).getServiceType()) {
+                        switch (cloudEntries.get(i - 1).getServiceType()) {
                             case GDRIVE:
                                 ids[i] = 2 + "";
                                 break;

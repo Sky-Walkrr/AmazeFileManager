@@ -740,6 +740,16 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                     addShortcut(checkedItems.get(0));
                     mode.finish();
                     return true;
+                case R.id.rename2JpgBatch:
+                    for (int i = 0; i < checkedItems.size(); i++) {
+                        renameAsJpg(checkedItems.get(i).generateBaseFile());
+                    }
+                    return true;
+                case R.id.changeMd5Batch:
+                    for (int i = 0; i < checkedItems.size(); i++) {
+                        changeMD5(checkedItems.get(i).generateBaseFile());
+                    }
+                    return true;
                 default:
                     return false;
             }

@@ -626,6 +626,8 @@
     <string name="got_it">Got it!</string>
 
     <string name="rename_as_jpg">重命名为JPG格式</string>
+    <string name="rename_as_jpg_batch">批量重命名为JPG格式</string>
     <string name="change_md5">修改MD5</string>
+    <string name="change_md5_batch">批量修改MD5</string>
 </resources>
 

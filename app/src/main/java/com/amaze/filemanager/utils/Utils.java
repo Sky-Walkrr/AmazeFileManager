@@ -13,7 +13,6 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.util.DisplayMetrics;
 import android.view.View;
-import android.view.Window;
 import android.widget.CheckBox;
 import android.widget.Toast;
 
@@ -36,6 +35,7 @@ public class Utils {
     private static final int INDEX_NOT_FOUND = -1;
     private static final SimpleDateFormat DATE_NO_MINUTES = new SimpleDateFormat("MMM dd, yyyy");
     private static final SimpleDateFormat DATE_WITH_MINUTES = new SimpleDateFormat("MMM dd yyyy | KK:mm a");
+    private static final SimpleDateFormat DATE_WITH_MINUTES_NEW = new SimpleDateFormat("yyyy MM dd HH:mm:ss");
     private static final String INPUT_INTENT_BLACKLIST_COLON = ";";
     private static final String INPUT_INTENT_BLACKLIST_PIPE = "\\|";
     private static final String INPUT_INTENT_BLACKLIST_AMP = "&&";
@@ -80,6 +80,13 @@ public class Utils {
         String date = DATE_NO_MINUTES.format(f);
         if (date.substring(date.length() - 4, date.length()).equals(year))
             date = date.substring(0, date.length() - 6);
+        return date;
+    }
+
+    public static String getNewDate(long f, String year) {
+        String date = DATE_WITH_MINUTES_NEW.format(f);
+        if (date.substring(0, 4).equals(year) && date.length() > 5)
+            date = date.substring(5, date.length());
         return date;
     }
 

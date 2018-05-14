@@ -28,7 +28,6 @@ import com.amaze.filemanager.adapters.holders.EmptyViewHolder;
 import com.amaze.filemanager.adapters.holders.ItemViewHolder;
 import com.amaze.filemanager.adapters.holders.SpecialViewHolder;
 import com.amaze.filemanager.fragments.MainFragment;
-import com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants;
 import com.amaze.filemanager.ui.ItemPopupMenu;
 import com.amaze.filemanager.ui.icons.Icons;
 import com.amaze.filemanager.ui.icons.MimeTypes;
@@ -38,7 +37,6 @@ import com.amaze.filemanager.utils.GlideConstants;
 import com.amaze.filemanager.utils.Utils;
 import com.amaze.filemanager.utils.color.ColorUsage;
 import com.amaze.filemanager.utils.color.ColorUtils;
-import com.amaze.filemanager.utils.files.CryptUtil;
 import com.amaze.filemanager.utils.provider.UtilitiesProvider;
 import com.amaze.filemanager.utils.theme.AppTheme;
 import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader;
@@ -865,11 +863,12 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                     || description.endsWith(".tar") || description.endsWith(".tar.gz"))
                 popupMenu.getMenu().findItem(R.id.ex).setVisible(true);
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-                if (description.endsWith(CryptUtil.CRYPT_EXTENSION))
-                    popupMenu.getMenu().findItem(R.id.decrypt).setVisible(true);
-                else popupMenu.getMenu().findItem(R.id.encrypt).setVisible(true);
-            }
+            // I don't need encrypt/decrypt
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+//                if (description.endsWith(CryptUtil.CRYPT_EXTENSION))
+//                    popupMenu.getMenu().findItem(R.id.decrypt).setVisible(true);
+//                else popupMenu.getMenu().findItem(R.id.encrypt).setVisible(true);
+//            }
 
             popupMenu.show();
         });

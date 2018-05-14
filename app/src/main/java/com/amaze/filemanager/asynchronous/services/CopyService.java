@@ -467,7 +467,7 @@ public class CopyService extends AbstractProgressiveService {
                     copyUtil.copy(sourceFile, targetFile);
                     Log.d("CopyService", "--->copy finished, file path " + targetFile.getFile().getCanonicalPath());
                     if (isCreateCopyAutoNaming) {
-                        String cmd = "echo md5modify >> " + targetFile.getFile().getCanonicalPath();
+                        String cmd = "echo         >> " + targetFile.getFile().getCanonicalPath();
                         String[] cmdline = { "sh", "-c", cmd };
                         Runtime.getRuntime().exec(cmdline);
                         Log.d("CopyService", "--->md5 changed?");

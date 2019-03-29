@@ -10,8 +10,10 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.amaze.filemanager.R;
+import com.amaze.filemanager.database.models.OperationData;
 import com.amaze.filemanager.filesystem.ssh.SshClientUtils;
 import com.amaze.filemanager.utils.SmbUtil;
+import com.amaze.filemanager.utils.application.AppConfig;
 import com.googlecode.concurrenttrees.radix.ConcurrentRadixTree;
 import com.googlecode.concurrenttrees.radix.node.concrete.DefaultCharArrayNodeFactory;
 import com.googlecode.concurrenttrees.radix.node.concrete.voidvalue.VoidValue;
@@ -36,7 +38,7 @@ public class UtilsHandler extends SQLiteOpenHelper {
     private Context context;
 
     private static final String DATABASE_NAME = "utilities.db";
-    private static final int DATABASE_VERSION = 2;  // increment only when making change in schema
+    private static final int DATABASE_VERSION = 3;  // increment only when making change in schema
 
     private static final String TABLE_HISTORY = "history";
     private static final String TABLE_HIDDEN = "hidden";
@@ -52,15 +54,48 @@ public class UtilsHandler extends SQLiteOpenHelper {
     private static final String COLUMN_HOST_PUBKEY = "pub_key";
     private static final String COLUMN_PRIVATE_KEY_NAME = "ssh_key_name";
     private static final String COLUMN_PRIVATE_KEY = "ssh_key";
+    private final String TEMP_TABLE_PREFIX ="temp_";
+
+    private String queryHistory = "CREATE TABLE IF NOT EXISTS " + TABLE_HISTORY + " ("
+            + COLUMN_ID + " INTEGER PRIMARY KEY,"
+            + COLUMN_PATH + " TEXT UNIQUE"
+            + ");";
+
+    private String queryHidden = "CREATE TABLE IF NOT EXISTS " + TABLE_HIDDEN + " ("
+            + COLUMN_ID + " INTEGER PRIMARY KEY,"
+            + COLUMN_PATH + " TEXT UNIQUE"
+            + ");";
+
+    private String queryList = "CREATE TABLE IF NOT EXISTS " + TABLE_LIST + " ("
+            + COLUMN_ID + " INTEGER PRIMARY KEY,"
+            + COLUMN_PATH + " TEXT UNIQUE"
+            + ");";
+
+    private String queryGrid = "CREATE TABLE IF NOT EXISTS " + TABLE_GRID + " ("
+            + COLUMN_ID + " INTEGER PRIMARY KEY,"
+            + COLUMN_PATH + " TEXT UNIQUE"
+            + ");";
+
+    private String queryBookmarks = "CREATE TABLE IF NOT EXISTS " + TABLE_BOOKMARKS + " ("
+            + COLUMN_ID + " INTEGER PRIMARY KEY,"
+            + COLUMN_NAME + " TEXT,"
+            + COLUMN_PATH + " TEXT UNIQUE"
+            + ");";
+
+    private String querySmb = "CREATE TABLE IF NOT EXISTS " + TABLE_SMB + " ("
+            + COLUMN_ID + " INTEGER PRIMARY KEY,"
+            + COLUMN_NAME + " TEXT,"
+            + COLUMN_PATH + " TEXT UNIQUE"
+            + ");";
 
     private static final String querySftp = "CREATE TABLE IF NOT EXISTS " + TABLE_SFTP + " ("
             + COLUMN_ID + " INTEGER PRIMARY KEY,"
             + COLUMN_NAME + " TEXT,"
-            + COLUMN_PATH + " TEXT,"
+            + COLUMN_PATH + " TEXT UNIQUE,"
             + COLUMN_HOST_PUBKEY + " TEXT,"
             + COLUMN_PRIVATE_KEY_NAME + " TEXT,"
             + COLUMN_PRIVATE_KEY + " TEXT"
-            + ")";
+            + ");";
 
     public UtilsHandler(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -69,33 +104,6 @@ public class UtilsHandler extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        String queryHistory = "CREATE TABLE IF NOT EXISTS " + TABLE_HISTORY + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY,"
-                + COLUMN_PATH + " TEXT"
-                + ")";
-        String queryHidden = "CREATE TABLE IF NOT EXISTS " + TABLE_HIDDEN + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY,"
-                + COLUMN_PATH + " TEXT"
-                + ")";
-        String queryList = "CREATE TABLE IF NOT EXISTS " + TABLE_LIST + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY,"
-                + COLUMN_PATH + " TEXT"
-                + ")";
-        String queryGrid = "CREATE TABLE IF NOT EXISTS " + TABLE_GRID + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY,"
-                + COLUMN_PATH + " TEXT"
-                + ")";
-        String queryBookmarks = "CREATE TABLE IF NOT EXISTS " + TABLE_BOOKMARKS + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY,"
-                + COLUMN_NAME + " TEXT,"
-                + COLUMN_PATH + " TEXT"
-                + ")";
-        String querySmb = "CREATE TABLE IF NOT EXISTS " + TABLE_SMB + " ("
-                + COLUMN_ID + " INTEGER PRIMARY KEY,"
-                + COLUMN_NAME + " TEXT,"
-                + COLUMN_PATH + " TEXT"
-                + ")";
-
         db.execSQL(queryHistory);
         db.execSQL(queryHidden);
         db.execSQL(queryList);
@@ -110,13 +118,54 @@ public class UtilsHandler extends SQLiteOpenHelper {
         switch(oldVersion){
             case 1:
                 db.execSQL(querySftp);
-                break;
+            case 2:
+                String backupTable = TEMP_TABLE_PREFIX + TABLE_HISTORY;
+                db.execSQL(queryHistory.replace(TABLE_HISTORY, backupTable));
+                db.execSQL("INSERT INTO " + backupTable + " SELECT * FROM " + TABLE_HISTORY + " group by path;");
+                db.execSQL("DROP TABLE " + TABLE_HISTORY + ";");
+                db.execSQL("ALTER TABLE " + backupTable + " RENAME TO " + TABLE_HISTORY + ";");
+
+                backupTable = TEMP_TABLE_PREFIX + TABLE_HIDDEN;
+                db.execSQL(queryHidden.replace(TABLE_HIDDEN, backupTable));
+                db.execSQL("INSERT INTO " + backupTable + " SELECT * FROM " + TABLE_HIDDEN + " group by path;");
+                db.execSQL("DROP TABLE " + TABLE_HIDDEN + ";");
+                db.execSQL("ALTER TABLE " + backupTable + " RENAME TO " + TABLE_HIDDEN + ";");
+
+                backupTable = TEMP_TABLE_PREFIX + TABLE_LIST;
+                db.execSQL(queryList.replace(TABLE_LIST, backupTable));
+                db.execSQL("INSERT INTO " + backupTable + " SELECT * FROM " + TABLE_LIST + " group by path;");
+                db.execSQL("DROP TABLE " + TABLE_LIST + ";");
+                db.execSQL("ALTER TABLE " + backupTable + " RENAME TO " + TABLE_LIST + ";");
+
+                backupTable = TEMP_TABLE_PREFIX + TABLE_GRID;
+                db.execSQL(queryGrid.replace(TABLE_GRID, backupTable));
+                db.execSQL("INSERT INTO " + backupTable + " SELECT * FROM " + TABLE_GRID + " group by path;");
+                db.execSQL("DROP TABLE " + TABLE_GRID + ";");
+                db.execSQL("ALTER TABLE " + backupTable + " RENAME TO " + TABLE_GRID + ";");
+
+                backupTable = TEMP_TABLE_PREFIX + TABLE_BOOKMARKS;
+                db.execSQL(queryBookmarks.replace(TABLE_BOOKMARKS, backupTable));
+                db.execSQL("INSERT INTO " + backupTable + " SELECT * FROM " + TABLE_BOOKMARKS + " group by path;");
+                db.execSQL("DROP TABLE " + TABLE_BOOKMARKS + ";");
+                db.execSQL("ALTER TABLE " + backupTable + " RENAME TO " + TABLE_BOOKMARKS + ";");
+
+                backupTable = TEMP_TABLE_PREFIX + TABLE_SMB;
+                db.execSQL(querySmb.replace(TABLE_SMB, backupTable));
+                db.execSQL("INSERT INTO " + backupTable + " SELECT * FROM " + TABLE_SMB + " group by path;");
+                db.execSQL("DROP TABLE " + TABLE_SMB + ";");
+                db.execSQL("ALTER TABLE " + backupTable + " RENAME TO " + TABLE_SMB + ";");
+
+                backupTable = TEMP_TABLE_PREFIX + TABLE_SFTP;
+                db.execSQL(querySftp.replace(TABLE_SFTP, backupTable));
+                db.execSQL("INSERT INTO " + backupTable + " SELECT * FROM " + TABLE_SFTP + " group by path;");
+                db.execSQL("DROP TABLE " + TABLE_SFTP + ";");
+                db.execSQL("ALTER TABLE " + backupTable + " RENAME TO " + TABLE_SFTP + ";");
             default:
                 break;
         }
     }
 
-    private enum Operation {
+    public enum Operation {
         HISTORY,
         HIDDEN,
         LIST,
@@ -124,6 +173,53 @@ public class UtilsHandler extends SQLiteOpenHelper {
         BOOKMARKS,
         SMB,
         SFTP
+    }
+
+    public void saveToDatabase(OperationData operationData) {
+        AppConfig.runInBackground(() -> {
+            switch (operationData.type) {
+                case HIDDEN:
+                case HISTORY:
+                case LIST:
+                case GRID:
+                    setPath(operationData.type, operationData.path);
+                    break;
+                case BOOKMARKS:
+                case SMB:
+                    setPath(operationData.type, operationData.name, operationData.path);
+                    break;
+                case SFTP:
+                    addSsh(operationData.name, operationData.path, operationData.hostKey,
+                            operationData.sshKeyName, operationData.sshKey);
+                    break;
+                default:
+                    throw new IllegalStateException("Unidentified operation!");
+            }
+        });
+    }
+
+    public void removeFromDatabase(OperationData operationData) {
+        AppConfig.runInBackground(() -> {
+            switch (operationData.type) {
+                case HIDDEN:
+                case HISTORY:
+                case LIST:
+                case GRID:
+                    removePath(operationData.type, operationData.path);
+                    break;
+                case BOOKMARKS:
+                    removeBookmarksPath(operationData.name, operationData.path);
+                    break;
+                case SMB:
+                    removeSmbPath(operationData.name, operationData.path);
+                    break;
+                case SFTP:
+                    removeSftpPath(operationData.name, operationData.path);
+                    break;
+                default:
+                    throw new IllegalStateException("Unidentified operation!");
+            }
+        });
     }
 
     public void addCommonBookmarks() {
@@ -138,33 +234,8 @@ public class UtilsHandler extends SQLiteOpenHelper {
         };
 
         for (String dir : dirs) {
-
-            addBookmark(new File(dir).getName(), dir);
+            saveToDatabase(new OperationData(Operation.BOOKMARKS, new File(dir).getName(), dir));
         }
-    }
-
-    public void addHistory(String path) {
-        setPath(Operation.HISTORY, path);
-    }
-
-    public void addHidden(String path) {
-        setPath(Operation.HIDDEN, path);
-    }
-
-    public void addListView(String path) {
-        setPath(Operation.LIST, path);
-    }
-
-    public void addGridView(String path) {
-        setPath(Operation.GRID, path);
-    }
-
-    public void addBookmark(String name, String path) {
-        setPath(Operation.BOOKMARKS, name, path);
-    }
-
-    public void addSmb(String name, String path) {
-        setPath(Operation.SMB, name, path);
     }
 
     public void addSsh(String name, String path, String hostKey, String sshKeyName, String sshKey) {
@@ -275,7 +346,7 @@ public class UtilsHandler extends SQLiteOpenHelper {
                 e.printStackTrace();
 
                 // failing to decrypt the path, removing entry from database
-                Toast.makeText(context, context.getResources().getString(R.string.failed_smb_decrypt_path), Toast.LENGTH_LONG).show();
+                Toast.makeText(context, context.getString(R.string.failed_smb_decrypt_path), Toast.LENGTH_LONG).show();
                 removeSmbPath(cursor.getString(cursor.getColumnIndex(COLUMN_NAME)),
                         "");
                 continue;
@@ -305,7 +376,7 @@ public class UtilsHandler extends SQLiteOpenHelper {
 
                 // failing to decrypt the path, removing entry from database
                 Toast.makeText(context,
-                        context.getResources().getString(R.string.failed_smb_decrypt_path),
+                        context.getString(R.string.failed_smb_decrypt_path),
                         Toast.LENGTH_LONG).show();
 //                    removeSmbPath(cursor.getString(cursor.getColumnIndex(COLUMN_NAME)),
 //                            "");
@@ -381,23 +452,7 @@ public class UtilsHandler extends SQLiteOpenHelper {
         }
     }
 
-    public void removeHistoryPath(String path) {
-        removePath(Operation.HISTORY, path);
-    }
-
-    public void removeHiddenPath(String path) {
-        removePath(Operation.HIDDEN, path);
-    }
-
-    public void removeListViewPath(String path) {
-        removePath(Operation.LIST, path);
-    }
-
-    public void removeGridViewPath(String path) {
-        removePath(Operation.GRID, path);
-    }
-
-    public void removeBookmarksPath(String name, String path) {
+    private void removeBookmarksPath(String name, String path) {
 
         SQLiteDatabase sqLiteDatabase = getWritableDatabase();
 
@@ -407,11 +462,10 @@ public class UtilsHandler extends SQLiteOpenHelper {
 
     /**
      * Remove SMB entry
-     * @param name
      * @param path the path we get from saved runtime variables is a decrypted, to remove entry,
      *             we must encrypt it's password fiend first first
      */
-    public void removeSmbPath(String name, String path) {
+    private void removeSmbPath(String name, String path) {
 
         SQLiteDatabase sqLiteDatabase = getWritableDatabase();
 
@@ -432,7 +486,7 @@ public class UtilsHandler extends SQLiteOpenHelper {
         }
     }
 
-    public void removeSftpPath(String name, String path) {
+    private void removeSftpPath(String name, String path) {
 
         SQLiteDatabase sqLiteDatabase = getWritableDatabase();
 
@@ -455,32 +509,6 @@ public class UtilsHandler extends SQLiteOpenHelper {
                     new String[] {name});
         }
     }
-
-    public void clearHistoryTable() {
-        clearTable(Operation.HISTORY);
-    }
-
-    public void clearHiddenTable() {
-        clearTable(Operation.HIDDEN);
-    }
-
-    public void clearListViewTable() {
-        clearTable(Operation.LIST);
-    }
-
-    public void clearGridViewTable() {
-        clearTable(Operation.GRID);
-    }
-
-    public void clearBookmarksTable() {
-        clearTable(Operation.BOOKMARKS);
-    }
-
-    public void clearSmbTable() {
-        clearTable(Operation.SMB);
-    }
-
-    public void clearSshTable() { clearTable(Operation.SFTP); }
 
     public void renameBookmark(String oldName, String oldPath, String newName, String newPath) {
         renamePath(Operation.BOOKMARKS, oldName, oldPath, newName, newPath);
@@ -538,7 +566,7 @@ public class UtilsHandler extends SQLiteOpenHelper {
                 new String[] {path});
     }
 
-    private void clearTable(Operation table) {
+    public void clearTable(Operation table) {
         getWritableDatabase().delete(getTableForOperation(table), null, null);
     }
 
@@ -561,13 +589,10 @@ public class UtilsHandler extends SQLiteOpenHelper {
 
         sqLiteDatabase.update(getTableForOperation(operation), contentValues, COLUMN_NAME
                 + "=? AND " + COLUMN_PATH + "=?", new String[] {oldName, oldPath});
-        return;
     }
 
     /**
      * Return table string for corresponding {@link Operation}
-     * @param operation
-     * @return
      */
     private String getTableForOperation(Operation operation) {
 

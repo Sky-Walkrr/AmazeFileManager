@@ -56,12 +56,12 @@ public class DeleteTask extends AsyncTask<ArrayList<HybridFileParcelable>, Strin
     private CompressedExplorerFragment compressedExplorerFragment;
     private DataUtils dataUtils = DataUtils.getInstance();
 
-    public DeleteTask(ContentResolver c, Context cd) {
+    public DeleteTask(Context cd) {
         this.cd = cd;
         rootMode = PreferenceManager.getDefaultSharedPreferences(cd).getBoolean(PreferencesConstants.PREFERENCE_ROOTMODE, false);
     }
 
-    public DeleteTask(ContentResolver c, Context cd, CompressedExplorerFragment compressedExplorerFragment) {
+    public DeleteTask(Context cd, CompressedExplorerFragment compressedExplorerFragment) {
         this.cd = cd;
         rootMode = PreferenceManager.getDefaultSharedPreferences(cd).getBoolean(PreferencesConstants.PREFERENCE_ROOTMODE, false);
         this.compressedExplorerFragment = compressedExplorerFragment;
@@ -152,7 +152,7 @@ public class DeleteTask extends AsyncTask<ArrayList<HybridFileParcelable>, Strin
                 }
             } catch (Exception e) {
                 for (HybridFileParcelable f : files) {
-                    FileUtils.scanFile(f.getPath(), cd);
+                    FileUtils.scanFile(f.getFile(), cd);
                 }
             }
         }

@@ -1,13 +1,41 @@
+/*
+ * GenericCopyUtil.java
+ *
+ * Copyright © 2016-2018 Vishal Nehra (vishalmeham2 at gmail.com),
+ * Raymond Lai (airwave209gt at gmail.com)
+ *
+ * This file is part of AmazeFileManager.
+ *
+ * AmazeFileManager is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * AmazeFileManager is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with AmazeFileManager. If not, see <http ://www.gnu.org/licenses/>.
+ */
+
 package com.amaze.filemanager.utils.files;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
+import android.support.annotation.NonNull;
+import android.support.annotation.VisibleForTesting;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import com.amaze.filemanager.R;
 import com.amaze.filemanager.filesystem.HybridFileParcelable;
 import com.amaze.filemanager.filesystem.FileUtil;
+import com.amaze.filemanager.filesystem.MediaStoreHack;
+import com.amaze.filemanager.utils.ProgressHandler;
 import com.amaze.filemanager.utils.application.AppConfig;
 import com.amaze.filemanager.filesystem.HybridFile;
 import com.amaze.filemanager.utils.DataUtils;
@@ -15,6 +43,7 @@ import com.amaze.filemanager.utils.OTGUtil;
 import com.amaze.filemanager.utils.OpenMode;
 import com.amaze.filemanager.utils.ServiceWatcherUtil;
 import com.amaze.filemanager.utils.cloud.CloudUtil;
+import com.amaze.filemanager.utils.test.DummyFileGenerator;
 import com.cloudrail.si.interfaces.CloudStorage;
 
 import java.io.BufferedInputStream;
@@ -23,16 +52,19 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 
 /**
- * Created by vishal on 26/10/16.
- *
+ * 
  * Base class to handle file copy.
  */
 
@@ -42,12 +74,22 @@ public class GenericCopyUtil {
     private HybridFile mTargetFile;
     private Context mContext;   // context needed to find the DocumentFile in otg/sd card
     private DataUtils dataUtils = DataUtils.getInstance();
+    private ProgressHandler progressHandler;
     public static final String PATH_FILE_DESCRIPTOR = "/proc/self/fd/";
 
-    public static final int DEFAULT_BUFFER_SIZE =  8192;
+    public static final int DEFAULT_BUFFER_SIZE = 8192;
 
-    public GenericCopyUtil(Context context) {
+    /*
+        Defines the block size per transfer over NIO channels.
+
+        Cannot modify DEFAULT_BUFFER_SIZE since it's used by other classes, will have undesired
+        effect on other functions
+     */
+    private static final int DEFAULT_TRANSFER_QUANTUM = 65536;
+
+    public GenericCopyUtil(Context context, ProgressHandler progressHandler) {
         this.mContext = context;
+        this.progressHandler = progressHandler;
     }
 
     /**
@@ -57,7 +99,6 @@ public class GenericCopyUtil {
      *                    using streams instead of channel which maps the who buffer in memory.
      *                    TODO: Use buffers even on low memory but don't map the whole file to memory but
      *                          parts of it, and transfer each part instead.
-     * @throws IOException
      */
     private void startCopy(boolean lowOnMemory) throws IOException {
 
@@ -77,14 +118,13 @@ public class GenericCopyUtil {
                 DocumentFile documentSourceFile = OTGUtil.getDocumentFile(mSourceFile.getPath(),
                         mContext, false);
 
-                bufferedInputStream = new BufferedInputStream(contentResolver
-                        .openInputStream(documentSourceFile.getUri()), DEFAULT_BUFFER_SIZE);
+                bufferedInputStream = new BufferedInputStream(contentResolver.openInputStream(documentSourceFile.getUri()), DEFAULT_BUFFER_SIZE);
             } else if (mSourceFile.isSmb()) {
 
                 // source is in smb
-                bufferedInputStream = new BufferedInputStream(mSourceFile.getInputStream(), DEFAULT_BUFFER_SIZE);
+                bufferedInputStream = new BufferedInputStream(mSourceFile.getInputStream(mContext), DEFAULT_TRANSFER_QUANTUM);
             } else if (mSourceFile.isSftp()) {
-                bufferedInputStream = new BufferedInputStream(mSourceFile.getInputStream(mContext), DEFAULT_BUFFER_SIZE);
+                bufferedInputStream = new BufferedInputStream(mSourceFile.getInputStream(mContext), DEFAULT_TRANSFER_QUANTUM);
             } else if (mSourceFile.isDropBoxFile()) {
 
                 CloudStorage cloudStorageDropbox = dataUtils.getAccount(OpenMode.DROPBOX);
@@ -127,12 +167,16 @@ public class GenericCopyUtil {
                         inChannel = new RandomAccessFile(file, "r").getChannel();
                     }
                 } else {
-                    ContentResolver contentResolver = mContext.getContentResolver();
-                    DocumentFile documentSourceFile = FileUtil.getDocumentFile(file,
-                            mSourceFile.isDirectory(), mContext);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        ContentResolver contentResolver = mContext.getContentResolver();
+                        DocumentFile documentSourceFile = FileUtil.getDocumentFile(file,
+                                mSourceFile.isDirectory(), mContext);
 
-                    bufferedInputStream = new BufferedInputStream(contentResolver
-                            .openInputStream(documentSourceFile.getUri()), DEFAULT_BUFFER_SIZE);
+                        bufferedInputStream = new BufferedInputStream(contentResolver.openInputStream(documentSourceFile.getUri()), DEFAULT_BUFFER_SIZE);
+                    } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.KITKAT) {
+                        InputStream inputStream1 = MediaStoreHack.getInputStream(mContext, file, mSourceFile.getSize());
+                        bufferedInputStream = new BufferedInputStream(inputStream1);
+                    }
                 }
             }
 
@@ -140,18 +184,15 @@ public class GenericCopyUtil {
             if (mTargetFile.isOtgFile()) {
 
                 // target in OTG, obtain streams from DocumentFile Uri's
-
                 ContentResolver contentResolver = mContext.getContentResolver();
                 DocumentFile documentTargetFile = OTGUtil.getDocumentFile(mTargetFile.getPath(),
                         mContext, true);
 
-                bufferedOutputStream = new BufferedOutputStream(contentResolver
-                        .openOutputStream(documentTargetFile.getUri()), DEFAULT_BUFFER_SIZE);
+                bufferedOutputStream = new BufferedOutputStream(contentResolver.openOutputStream(documentTargetFile.getUri()), DEFAULT_BUFFER_SIZE);
             } else if (mTargetFile.isSftp()) {
-                bufferedOutputStream = new BufferedOutputStream(mTargetFile.getOutputStream(mContext), DEFAULT_BUFFER_SIZE);
+                bufferedOutputStream = new BufferedOutputStream(mTargetFile.getOutputStream(mContext), DEFAULT_TRANSFER_QUANTUM);
             } else if (mTargetFile.isSmb()) {
-
-                bufferedOutputStream = new BufferedOutputStream(mTargetFile.getOutputStream(mContext), DEFAULT_BUFFER_SIZE);
+                bufferedOutputStream = new BufferedOutputStream(mTargetFile.getOutputStream(mContext), DEFAULT_TRANSFER_QUANTUM);
             } else if (mTargetFile.isDropBoxFile()) {
                 // API doesn't support output stream, we'll upload the file directly
                 CloudStorage cloudStorageDropbox = dataUtils.getAccount(OpenMode.DROPBOX);
@@ -224,12 +265,17 @@ public class GenericCopyUtil {
                         outChannel = new RandomAccessFile(file, "rw").getChannel();
                     }
                 } else {
-                    ContentResolver contentResolver = mContext.getContentResolver();
-                    DocumentFile documentTargetFile = FileUtil.getDocumentFile(file,
-                            mTargetFile.isDirectory(), mContext);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        ContentResolver contentResolver = mContext.getContentResolver();
+                        DocumentFile documentTargetFile = FileUtil.getDocumentFile(file,
+                                mTargetFile.isDirectory(mContext), mContext);
 
-                    bufferedOutputStream = new BufferedOutputStream(contentResolver
-                            .openOutputStream(documentTargetFile.getUri()), DEFAULT_BUFFER_SIZE);
+                        bufferedOutputStream = new BufferedOutputStream(contentResolver
+                                .openOutputStream(documentTargetFile.getUri()), DEFAULT_BUFFER_SIZE);
+                    } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.KITKAT) {
+                        // Workaround for Kitkat ext SD card
+                        bufferedOutputStream = new BufferedOutputStream(MediaStoreHack.getOutputStream(mContext, file.getPath()));
+                    }
                 }
             }
 
@@ -251,7 +297,7 @@ public class GenericCopyUtil {
             e.printStackTrace();
 
             // we ran out of memory to map the whole channel, let's switch to streams
-            AppConfig.toast(mContext, mContext.getResources().getString(R.string.copy_low_memory));
+            AppConfig.toast(mContext, mContext.getString(R.string.copy_low_memory));
 
             startCopy(true);
         } finally {
@@ -267,6 +313,11 @@ public class GenericCopyUtil {
                 e.printStackTrace();
                 // failure in closing stream
             }
+
+            //If target file is copied onto the device and copy was successful, trigger media store
+            //rescan
+            if (mTargetFile != null)
+                FileUtils.scanFile(mTargetFile, mContext);
         }
     }
 
@@ -283,122 +334,80 @@ public class GenericCopyUtil {
         startCopy(false);
     }
 
-    private void copyFile(BufferedInputStream bufferedInputStream, FileChannel outChannel)
+    /**
+     * Calls {@link #doCopy(ReadableByteChannel, WritableByteChannel)}.
+     *
+     * @see Channels#newChannel(InputStream)
+     * @param bufferedInputStream source
+     * @param outChannel target
+     * @throws IOException
+     */
+    @VisibleForTesting
+    void copyFile(@NonNull BufferedInputStream bufferedInputStream, @NonNull FileChannel outChannel)
             throws IOException {
-
-        MappedByteBuffer byteBuffer = outChannel.map(FileChannel.MapMode.READ_WRITE, 0,
-                mSourceFile.getSize());
-        int count = 0;
-        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-        while (count != -1) {
-
-            count = bufferedInputStream.read(buffer);
-            if (count!=-1) {
-
-                byteBuffer.put(buffer, 0, count);
-                ServiceWatcherUtil.position +=count;
-            }
-        }
-    }
-
-    private void copyFile(FileChannel inChannel, FileChannel outChannel) throws IOException {
-
-        //MappedByteBuffer inByteBuffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
-        //MappedByteBuffer outByteBuffer = outChannel.map(FileChannel.MapMode.READ_WRITE, 0, inChannel.size());
-
-        ReadableByteChannel inByteChannel = new CustomReadableByteChannel(inChannel);
-        outChannel.transferFrom(inByteChannel, 0, mSourceFile.getSize());
-    }
-
-    private void copyFile(BufferedInputStream bufferedInputStream, BufferedOutputStream bufferedOutputStream)
-            throws IOException {
-        int count = 0;
-        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-
-        while (count != -1) {
-
-            count = bufferedInputStream.read(buffer);
-            if (count!=-1) {
-
-                bufferedOutputStream.write(buffer, 0 , count);
-                ServiceWatcherUtil.position +=count;
-            }
-        }
-        bufferedOutputStream.flush();
-    }
-
-    private void copyFile(FileChannel inChannel, BufferedOutputStream bufferedOutputStream)
-            throws IOException {
-        MappedByteBuffer inBuffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, mSourceFile.getSize());
-
-        int count = -1;
-        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-        while (inBuffer.hasRemaining() && count != 0) {
-
-            int tempPosition = inBuffer.position();
-
-            try {
-
-                // try normal way of getting bytes
-                ByteBuffer tempByteBuffer = inBuffer.get(buffer);
-                count = tempByteBuffer.position() - tempPosition;
-            } catch (BufferUnderflowException exception) {
-                exception.printStackTrace();
-
-                // not enough bytes left in the channel to read, iterate over each byte and store
-                // in the buffer
-
-                // reset the counter bytes
-                count = 0;
-                for (int i=0; i<buffer.length && inBuffer.hasRemaining(); i++) {
-                    buffer[i] = inBuffer.get();
-                    count++;
-                }
-            }
-
-            if (count != -1) {
-
-                bufferedOutputStream.write(buffer, 0, count);
-                ServiceWatcherUtil.position = inBuffer.position();
-            }
-
-        }
-        bufferedOutputStream.flush();
+        doCopy(Channels.newChannel(bufferedInputStream), outChannel);
     }
 
     /**
-     * Inner class responsible for getting a {@link ReadableByteChannel} from the input channel
-     * and to watch over the read progress
+     * Calls {@link #doCopy(ReadableByteChannel, WritableByteChannel)}.
+     *
+     * @param inChannel source
+     * @param outChannel target
+     * @throws IOException
      */
-    private class CustomReadableByteChannel implements ReadableByteChannel {
+    @VisibleForTesting
+    void copyFile(@NonNull FileChannel inChannel, @NonNull FileChannel outChannel)
+            throws IOException {
+        //MappedByteBuffer inByteBuffer = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
+        //MappedByteBuffer outByteBuffer = outChannel.map(FileChannel.MapMode.READ_WRITE, 0, inChannel.size());
+        doCopy(inChannel, outChannel);
+    }
 
-        ReadableByteChannel byteChannel;
+    /**
+     * Calls {@link #doCopy(ReadableByteChannel, WritableByteChannel)}.
+     *
+     * @see Channels#newChannel(InputStream)
+     * @see Channels#newChannel(OutputStream)
+     * @param bufferedInputStream source
+     * @param bufferedOutputStream target
+     * @throws IOException
+     */
+    @VisibleForTesting
+    void copyFile(@NonNull BufferedInputStream bufferedInputStream, @NonNull BufferedOutputStream bufferedOutputStream)
+            throws IOException {
+        doCopy(Channels.newChannel(bufferedInputStream), Channels.newChannel(bufferedOutputStream));
+    }
 
-        CustomReadableByteChannel(ReadableByteChannel byteChannel) {
-            this.byteChannel = byteChannel;
+    /**
+     * Calls {@link #doCopy(ReadableByteChannel, WritableByteChannel)}.
+     *
+     * @see Channels#newChannel(OutputStream)
+     * @param inChannel source
+     * @param bufferedOutputStream target
+     * @throws IOException
+     */
+    @VisibleForTesting
+    void copyFile(@NonNull FileChannel inChannel, @NonNull BufferedOutputStream bufferedOutputStream)
+            throws IOException {
+        doCopy(inChannel, Channels.newChannel(bufferedOutputStream));
+    }
+
+    @VisibleForTesting
+    void doCopy(@NonNull ReadableByteChannel from, @NonNull WritableByteChannel to) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocateDirect(DEFAULT_TRANSFER_QUANTUM);
+        long count;
+        while ((from.read(buffer) != -1 || buffer.position() > 0) && !progressHandler.getCancelled()) {
+            buffer.flip();
+            count = to.write(buffer);
+            ServiceWatcherUtil.position += count;
+            buffer.compact();
         }
 
-        @Override
-        public int read(ByteBuffer dst) throws IOException {
-            int bytes;
-            if (((bytes = byteChannel.read(dst))>0)) {
+        buffer.flip();
+        while(buffer.hasRemaining())
+            to.write(buffer);
 
-                ServiceWatcherUtil.position += bytes;
-                return bytes;
-
-            }
-            return 0;
-        }
-
-        @Override
-        public boolean isOpen() {
-            return byteChannel.isOpen();
-        }
-
-        @Override
-        public void close() throws IOException {
-
-            byteChannel.close();
-        }
+        from.close();
+        to.close();
     }
 }

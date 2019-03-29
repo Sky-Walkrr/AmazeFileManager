@@ -23,7 +23,6 @@
   <string name="drawer_open">Gezinme çekmecesini aç</string>
   <string name="drawer_close">Gezinme çekmecesini kapat</string>
     <string name="icon">Simge</string>
-    <string name="storage">Depolama</string>
     <string name="apps">Uygulama Yöneticisi</string>
   <string name="ftp">FTP Sunucu</string>
     <string name="setting">Ayarlar</string>
@@ -263,7 +262,7 @@ Devam etmek istiyor musunuz?\"</string>
   <string name="grant">İzin</string>
   <string name="grantper">İzin ver</string>
   <string name="grantfailed">İzin verilmedi</string>
-  <string name="granttext">Uygulamanın devam edebilmesi için depolama iznine ihtiyacı var. İptal etmek uygulamayı sonlandıracaktır.</string>
+  <string name="grant_storage_permission">Uygulamanın devam edebilmesi için depolama iznine ihtiyacı var. İptal etmek uygulamayı sonlandıracaktır.</string>
   <string name="operationunsuccesful">İşlem Başarısız</string>
   <string name="creatingfile">Dosya Oluşturuluyor</string>
   <string name="creatingfolder">Klasör oluşturuluyor</string>

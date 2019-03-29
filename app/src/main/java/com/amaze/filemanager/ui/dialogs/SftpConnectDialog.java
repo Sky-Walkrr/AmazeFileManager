@@ -42,21 +42,19 @@ import com.afollestad.materialdialogs.MaterialDialog;
 import com.afollestad.materialdialogs.internal.MDButton;
 import com.amaze.filemanager.R;
 import com.amaze.filemanager.activities.MainActivity;
+import com.amaze.filemanager.activities.superclasses.ThemedActivity;
+import com.amaze.filemanager.asynchronous.asynctasks.ssh.GetSshHostFingerprintTask;
+import com.amaze.filemanager.asynchronous.asynctasks.ssh.PemToKeyPairTask;
 import com.amaze.filemanager.database.UtilsHandler;
+import com.amaze.filemanager.database.models.OperationData;
 import com.amaze.filemanager.filesystem.ssh.SshClientUtils;
 import com.amaze.filemanager.filesystem.ssh.SshConnectionPool;
 import com.amaze.filemanager.fragments.MainFragment;
-import com.amaze.filemanager.asynchronous.asynctasks.AsyncTaskResult;
-import com.amaze.filemanager.asynchronous.asynctasks.ssh.PemToKeyPairTask;
-import com.amaze.filemanager.asynchronous.asynctasks.ssh.SshAuthenticationTask;
-import com.amaze.filemanager.asynchronous.asynctasks.ssh.GetSshHostFingerprintTask;
 import com.amaze.filemanager.utils.BookSorter;
-import com.amaze.filemanager.utils.SimpleTextWatcher;
-import com.amaze.filemanager.utils.application.AppConfig;
 import com.amaze.filemanager.utils.DataUtils;
 import com.amaze.filemanager.utils.OpenMode;
+import com.amaze.filemanager.utils.SimpleTextWatcher;
 import com.amaze.filemanager.utils.application.AppConfig;
-import com.amaze.filemanager.utils.color.ColorUsage;
 import com.amaze.filemanager.utils.provider.UtilitiesProvider;
 
 import net.schmizz.sshj.SSHClient;
@@ -70,6 +68,8 @@ import java.io.InputStreamReader;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.Collections;
+
+import static com.amaze.filemanager.filesystem.ssh.SshClientUtils.deriveSftpPathFrom;
 
 /**
  * SSH/SFTP connection setup dialog.
@@ -136,7 +136,7 @@ public class SftpConnectDialog extends DialogFragment {
             portET.selectAll();
         });
 
-        int accentColor = utilsProvider.getColorPreference().getColor(ColorUsage.ACCENT);
+        int accentColor = ((ThemedActivity) getActivity()).getAccent();
 
         //Use system provided action to get Uri to PEM.
         //If MaterialDialog.Builder can be upgraded we may use their file selection dialog too
@@ -186,7 +186,7 @@ public class SftpConnectDialog extends DialogFragment {
                         final String hostAndPort = sb.toString();
 
                         new AlertDialog.Builder(context).setTitle(R.string.ssh_host_key_verification_prompt_title)
-                                .setMessage(String.format(getResources().getString(R.string.ssh_host_key_verification_prompt),
+                                .setMessage(getString(R.string.ssh_host_key_verification_prompt,
                                         hostAndPort, hostKey.getAlgorithm(), hostKeyFingerprint))
                                 .setCancelable(true)
                                 .setPositiveButton(R.string.yes, (dialog1, which1) -> {
@@ -207,7 +207,6 @@ public class SftpConnectDialog extends DialogFragment {
 
         //If we are editing connection settings, give new actions for neutral and negative buttons
         if(edit) {
-            Log.d(TAG, "Edit? " + edit);
             dialogBuilder.negativeText(R.string.delete).onNegative((dialog, which) -> {
 
             final String connectionName = connectionET.getText().toString();
@@ -223,7 +222,8 @@ public class SftpConnectDialog extends DialogFragment {
                 DataUtils.getInstance().removeServer(i);
 
                 AppConfig.runInBackground(() -> {
-                    utilsHandler.removeSftpPath(connectionName, path);
+                    utilsHandler.removeFromDatabase(new OperationData(UtilsHandler.Operation.SFTP,
+                            path, connectionName, null, null, null));
                 });
                 ((MainActivity) getActivity()).getDrawer().refreshDrawer();
             }
@@ -270,25 +270,20 @@ public class SftpConnectDialog extends DialogFragment {
         if(SELECT_PEM_INTENT == requestCode && Activity.RESULT_OK == resultCode)
         {
             selectedPem = data.getData();
-            Log.d(TAG, "Selected PEM: " + selectedPem.toString() + "/ "
-                    + selectedPem.getLastPathSegment());
-            
+
             try {
                 InputStream selectedKeyContent = context.getContentResolver()
                         .openInputStream(selectedPem);
                 new PemToKeyPairTask(selectedKeyContent, result -> {
-                    if(result.result != null)
-                    {
-                        selectedParsedKeyPair = result.result;
-                        selectedParsedKeyPairName = selectedPem.getLastPathSegment()
-                                .substring(selectedPem.getLastPathSegment().indexOf('/')+1);
-                        MDButton okBTN = ((MaterialDialog)getDialog())
-                                .getActionButton(DialogAction.POSITIVE);
-                        okBTN.setEnabled(okBTN.isEnabled() || true);
+                    selectedParsedKeyPair = result;
+                    selectedParsedKeyPairName = selectedPem.getLastPathSegment()
+                            .substring(selectedPem.getLastPathSegment().indexOf('/')+1);
+                    MDButton okBTN = ((MaterialDialog)getDialog())
+                            .getActionButton(DialogAction.POSITIVE);
+                    okBTN.setEnabled(okBTN.isEnabled() || true);
 
-                        Button selectPemBTN = getDialog().findViewById(R.id.selectPemBTN);
-                        selectPemBTN.setText(selectedParsedKeyPairName);
-                    }
+                    Button selectPemBTN = getDialog().findViewById(R.id.selectPemBTN);
+                    selectPemBTN.setText(selectedParsedKeyPairName);
                 }).execute();
 
             } catch(FileNotFoundException e) {
@@ -313,25 +308,26 @@ public class SftpConnectDialog extends DialogFragment {
 
         if(!isEdit) {
             try {
-                AsyncTaskResult<SSHClient> taskResult = new SshAuthenticationTask(hostname, port,
-                        hostKeyFingerprint, username, password, selectedParsedKeyPair).execute().get();
-                SSHClient result = taskResult.result;
+                SSHClient result = SshConnectionPool.getInstance().getConnection(hostname, port,
+                        hostKeyFingerprint, username, password, selectedParsedKeyPair);
+
                 if(result != null) {
 
                     if(DataUtils.getInstance().containsServer(path) == -1) {
                         DataUtils.getInstance().addServer(new String[]{connectionName, path});
                         ((MainActivity) getActivity()).getDrawer().refreshDrawer();
 
-                        utilsHandler.addSsh(connectionName, encryptedPath, hostKeyFingerprint,
-                                selectedParsedKeyPairName, getPemContents());
+                        utilsHandler.saveToDatabase(new OperationData(UtilsHandler.Operation.SFTP,
+                                encryptedPath, connectionName, hostKeyFingerprint,
+                                selectedParsedKeyPairName, getPemContents()));
 
                         MainFragment ma = ((MainActivity)getActivity()).getCurrentMainFragment();
-                        ma.loadlist(path, false, OpenMode.UNKNOWN);
+                        ma.loadlist(path, false, OpenMode.SFTP);
                         dismiss();
 
                     } else {
                         Snackbar.make(getActivity().findViewById(R.id.content_frame),
-                                getResources().getString(R.string.connection_exists), Snackbar.LENGTH_SHORT).show();
+                                getString(R.string.connection_exists), Snackbar.LENGTH_SHORT).show();
                         dismiss();
                     }
                     return true;
@@ -357,14 +353,6 @@ public class SftpConnectDialog extends DialogFragment {
             dismiss();
             return true;
         }
-    }
-
-    //Decide the SSH URL depends on password/selected KeyPair
-    private String deriveSftpPathFrom(String hostname, int port, String username, String password,
-                                      KeyPair selectedParsedKeyPair) {
-        return (selectedParsedKeyPair != null || password == null) ?
-                String.format("ssh://%s@%s:%d", username, hostname, port) :
-                String.format("ssh://%s:%s@%s:%d", username, password, hostname, port);
     }
 
     //Read the PEM content from InputStream to String.

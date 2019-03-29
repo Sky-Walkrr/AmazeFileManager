@@ -46,6 +46,7 @@ import net.schmizz.sshj.sftp.SFTPClient;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.security.KeyPair;
 import java.util.List;
 
 import static com.amaze.filemanager.filesystem.ssh.SshConnectionPool.SSH_URI_PREFIX;
@@ -93,7 +94,7 @@ public abstract class SshClientUtils
     public static final <T> T execute(@NonNull final SshClientSessionTemplate template) {
         return execute(new SshClientTemplate(template.url, false) {
             @Override
-            public T execute(SSHClient client) throws IOException {
+            public T execute(SSHClient client) {
                 Session session = null;
                 T retval = null;
                 try {
@@ -125,7 +126,7 @@ public abstract class SshClientUtils
     public static final <T> T execute(@NonNull final SFtpClientTemplate template) {
         return execute(new SshClientTemplate(template.url, false) {
             @Override
-            public T execute(SSHClient client) throws IOException {
+            public T execute(SSHClient client) {
                 SFTPClient sftpClient = null;
                 T retval = null;
                 try {
@@ -155,9 +156,9 @@ public abstract class SshClientUtils
      * @return SSH URL with the password (if exists) encrypted
      */
     public static final String encryptSshPathAsNecessary(@NonNull String fullUri) {
-        String uriWithoutProtocol = fullUri.substring(SSH_URI_PREFIX.length(), fullUri.indexOf('@'));
+        String uriWithoutProtocol = fullUri.substring(SSH_URI_PREFIX.length(), fullUri.lastIndexOf('@'));
         try {
-            return (uriWithoutProtocol.indexOf(':') > 0) ?
+            return (uriWithoutProtocol.lastIndexOf(':') > 0) ?
                     SmbUtil.getSmbEncryptedPath(AppConfig.getInstance(), fullUri) :
                     fullUri;
         } catch(IOException | GeneralSecurityException e){
@@ -174,9 +175,9 @@ public abstract class SshClientUtils
      * @return SSH URL with the password (if exists) decrypted
      */
     public static final String decryptSshPathAsNecessary(@NonNull String fullUri) {
-        String uriWithoutProtocol = fullUri.substring(SSH_URI_PREFIX.length(), fullUri.indexOf('@'));
+        String uriWithoutProtocol = fullUri.substring(SSH_URI_PREFIX.length(), fullUri.lastIndexOf('@'));
         try {
-            return (uriWithoutProtocol.indexOf(':') > 0) ?
+            return (uriWithoutProtocol.lastIndexOf(':') > 0) ?
                     SmbUtil.getSmbDecryptedPath(AppConfig.getInstance(), fullUri) :
                     fullUri;
         } catch(IOException | GeneralSecurityException e){
@@ -262,5 +263,13 @@ public abstract class SshClientUtils
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    //Decide the SSH URL depends on password/selected KeyPair
+    public static String deriveSftpPathFrom(String hostname, int port, String username, String password,
+                                      KeyPair selectedParsedKeyPair) {
+        return (selectedParsedKeyPair != null || password == null) ?
+                String.format("ssh://%s@%s:%d", username, hostname, port) :
+                String.format("ssh://%s:%s@%s:%d", username, password, hostname, port);
     }
 }

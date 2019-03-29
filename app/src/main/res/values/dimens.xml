@@ -45,4 +45,12 @@
     <dimen name="list_header_top_bottom_padding">8dp</dimen>
     <dimen name="list_header_textsize">16sp</dimen>
 
+    <!-- Copy value from material-dialogs library -->
+    <dimen name="md_dialog_frame_margin">24dp</dimen>
+    <dimen name="md_content_padding_bottom">8dp</dimen>
+    <dimen name="md_content_textsize">16sp</dimen>
+    <dimen name="md_content_padding_top">8dp</dimen>
+
+    <dimen name="dialogPreferredPadding">24dp</dimen>
+
 </resources>

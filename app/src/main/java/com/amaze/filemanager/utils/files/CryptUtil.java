@@ -1,3 +1,24 @@
+/*
+ * SftpConnectDialog.java
+ *
+ * Copyright © 2017-2018 Vishal Nehra <vishalmeham2@gmail.com>, Emmanuel Messulam <emmanuelbendavid@gmail.com>,
+ * Raymond Lai <airwave209gt at gmail.com> and Contributors.
+ *
+ * This file is part of AmazeFileManager.
+ *
+ * AmazeFileManager is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * AmazeFileManager is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with AmazeFileManager. If not, see <http ://www.gnu.org/licenses/>.
+ */
 package com.amaze.filemanager.utils.files;
 
 import android.content.Context;
@@ -97,18 +118,17 @@ public class CryptUtil {
      * Be sure to use constructors to encrypt/decrypt files only, and to call service through
      * {@link ServiceWatcherUtil} and to initialize watchers beforehand
      *
-     * @param context
      * @param sourceFile the file to encrypt
      */
     public CryptUtil(Context context, HybridFileParcelable sourceFile, ProgressHandler progressHandler,
-                     ArrayList<HybridFile> failedOps) throws GeneralSecurityException, IOException {
+                     ArrayList<HybridFile> failedOps, String targetFilename) throws GeneralSecurityException, IOException {
 
         this.progressHandler = progressHandler;
         this.failedOps = failedOps;
 
         // target encrypted file
         HybridFile hFile = new HybridFile(sourceFile.getMode(), sourceFile.getParent(context));
-        encrypt(context, sourceFile, hFile);
+        encrypt(context, sourceFile, hFile, targetFilename);
     }
 
     /**
@@ -119,7 +139,6 @@ public class CryptUtil {
      * Be sure to use constructors to encrypt/decrypt files only, and to call service through
      * {@link ServiceWatcherUtil} and to initialize watchers beforehand
      *
-     * @param context
      * @param baseFile the encrypted file
      * @param targetPath the directory in which file is to be decrypted
      *                   the source's parent in normal case
@@ -142,13 +161,13 @@ public class CryptUtil {
 
     /**
      * Wrapper around handling decryption for directory tree
-     * @param context
+     *
      * @param sourceFile        the source file to decrypt
      * @param targetDirectory   the target directory inside which we're going to decrypt
      */
     private void decrypt(final Context context, HybridFileParcelable sourceFile, HybridFile targetDirectory)
             throws GeneralSecurityException, IOException {
-
+        if (progressHandler.getCancelled()) return;
         if (sourceFile.isDirectory()) {
 
             final HybridFile hFile = new HybridFile(targetDirectory.getMode(), targetDirectory.getPath(),
@@ -181,8 +200,6 @@ public class CryptUtil {
             BufferedOutputStream outputStream = new BufferedOutputStream(targetFile.getOutputStream(context),
                     GenericCopyUtil.DEFAULT_BUFFER_SIZE);
 
-            if (progressHandler.getCancelled()) return;
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 aesDecrypt(inputStream, outputStream);
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
@@ -193,24 +210,25 @@ public class CryptUtil {
 
     /**
      * Wrapper around handling encryption in directory tree
-     * @param context
+     *
      * @param sourceFile        the source file to encrypt
      * @param targetDirectory   the target directory in which we're going to encrypt
      */
-    private void encrypt(final Context context, HybridFileParcelable sourceFile, HybridFile targetDirectory)
+    private void encrypt(final Context context, HybridFileParcelable sourceFile, HybridFile targetDirectory, String targetFilename)
             throws GeneralSecurityException, IOException {
 
+        if (progressHandler.getCancelled()) return;
         if (sourceFile.isDirectory()) {
 
             // succeed #CRYPT_EXTENSION at end of directory/file name
             final HybridFile hFile = new HybridFile(targetDirectory.getMode(),
-                    targetDirectory.getPath(), sourceFile.getName() + CRYPT_EXTENSION,
+                    targetDirectory.getPath(), targetFilename,
                     sourceFile.isDirectory());
             FileUtil.mkdirs(context, hFile);
 
             sourceFile.forEachChildrenFile(context, sourceFile.isRoot(), file -> {
                 try {
-                    encrypt(context, file, hFile);
+                    encrypt(context, file, hFile, file.getName().concat(CRYPT_EXTENSION));
                 } catch (IOException | GeneralSecurityException e) {
                     throw new IllegalStateException(e);//throw unchecked exception, no throws needed
                 }
@@ -227,15 +245,13 @@ public class CryptUtil {
 
             // succeed #CRYPT_EXTENSION at end of directory/file name
             HybridFile targetFile = new HybridFile(targetDirectory.getMode(),
-                    targetDirectory.getPath(), sourceFile.getName() + CRYPT_EXTENSION,
+                    targetDirectory.getPath(), targetFilename,
                     sourceFile.isDirectory());
 
             progressHandler.setFileName(sourceFile.getName());
 
             BufferedOutputStream outputStream = new BufferedOutputStream(targetFile.getOutputStream(context),
                     GenericCopyUtil.DEFAULT_BUFFER_SIZE);
-
-            if (progressHandler.getCancelled()) return;
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 aesEncrypt(inputStream, outputStream);
@@ -280,7 +296,7 @@ public class CryptUtil {
      * @param outputStream stream associated with new output encrypted file
      */
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private static void aesEncrypt(BufferedInputStream inputStream, BufferedOutputStream outputStream)
+    private void aesEncrypt(BufferedInputStream inputStream, BufferedOutputStream outputStream)
             throws GeneralSecurityException, IOException {
 
         Cipher cipher = Cipher.getInstance(ALGO_AES);
@@ -297,9 +313,10 @@ public class CryptUtil {
         try {
 
             while ((count = inputStream.read(buffer)) != -1) {
-
-                cipherOutputStream.write(buffer, 0, count);
-                ServiceWatcherUtil.position +=count;
+                if (!progressHandler.getCancelled()) {
+                    cipherOutputStream.write(buffer, 0, count);
+                    ServiceWatcherUtil.position +=count;
+                } else break;
             }
         } finally {
 
@@ -315,7 +332,7 @@ public class CryptUtil {
      * @param outputStream stream associated with new output decrypted file
      */
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private static void aesDecrypt(BufferedInputStream inputStream, BufferedOutputStream outputStream)
+    private void aesDecrypt(BufferedInputStream inputStream, BufferedOutputStream outputStream)
             throws GeneralSecurityException, IOException {
 
         Cipher cipher = Cipher.getInstance(ALGO_AES);
@@ -330,9 +347,10 @@ public class CryptUtil {
         try {
 
             while ((count = cipherInputStream.read(buffer)) != -1) {
-
-                outputStream.write(buffer, 0, count);
-                ServiceWatcherUtil.position +=count;
+                if (!progressHandler.getCancelled()) {
+                    outputStream.write(buffer, 0, count);
+                    ServiceWatcherUtil.position +=count;
+                } else break;
             }
         } finally {
 
@@ -345,14 +363,6 @@ public class CryptUtil {
     /**
      * Gets a secret key from Android key store.
      * If no key has been generated with a given alias then generate a new one
-     * @return
-     * @throws KeyStoreException
-     * @throws CertificateException
-     * @throws NoSuchAlgorithmException
-     * @throws IOException
-     * @throws NoSuchProviderException
-     * @throws InvalidAlgorithmParameterException
-     * @throws UnrecoverableKeyException
      */
     @RequiresApi(api = Build.VERSION_CODES.M)
     private static Key getSecretKey() throws GeneralSecurityException, IOException {
@@ -377,7 +387,7 @@ public class CryptUtil {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-    private static void rsaEncrypt(Context context, BufferedInputStream inputStream, BufferedOutputStream outputStream)
+    private void rsaEncrypt(Context context, BufferedInputStream inputStream, BufferedOutputStream outputStream)
             throws GeneralSecurityException, IOException {
 
         Cipher cipher = Cipher.getInstance(ALGO_AES, "BC");
@@ -393,9 +403,10 @@ public class CryptUtil {
         try {
 
             while ((count = inputStream.read(buffer)) != -1) {
-
-                cipherOutputStream.write(buffer, 0, count);
-                ServiceWatcherUtil.position +=count;
+                if (!progressHandler.getCancelled()) {
+                    cipherOutputStream.write(buffer, 0, count);
+                    ServiceWatcherUtil.position +=count;
+                } else break;
             }
         } finally {
 
@@ -406,7 +417,7 @@ public class CryptUtil {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-    private static void rsaDecrypt(Context context, BufferedInputStream inputStream,
+    private void rsaDecrypt(Context context, BufferedInputStream inputStream,
                                    BufferedOutputStream outputStream) throws GeneralSecurityException, IOException {
 
         Cipher cipher = Cipher.getInstance(ALGO_AES, "BC");
@@ -422,9 +433,10 @@ public class CryptUtil {
         try {
 
             while ((count = cipherInputStream.read(buffer)) != -1) {
-
-                outputStream.write(buffer, 0, count);
-                ServiceWatcherUtil.position +=count;
+                if (!progressHandler.getCancelled()) {
+                    outputStream.write(buffer, 0, count);
+                    ServiceWatcherUtil.position +=count;
+                } else break;
             }
         } finally {
 
@@ -460,17 +472,13 @@ public class CryptUtil {
 
     /**
      * Method handles encryption of plain text on various APIs
-     * @param context
-     * @param plainText
-     * @return
      */
     public static String encryptPassword(Context context, String plainText) throws GeneralSecurityException, IOException {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-
-            return CryptUtil.aesEncryptPassword(plainText);
+            return aesEncryptPassword(plainText);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
 
-            return CryptUtil.rsaEncryptPassword(context, plainText);
+            return rsaEncryptPassword(context, plainText);
         } else return plainText;
     }
 
@@ -479,9 +487,9 @@ public class CryptUtil {
      */
     public static String decryptPassword(Context context, String cipherText) throws GeneralSecurityException, IOException {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return CryptUtil.aesDecryptPassword(cipherText);
+            return aesDecryptPassword(cipherText);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            return CryptUtil.rsaDecryptPassword(context, cipherText);
+            return rsaDecryptPassword(context, cipherText);
         } else return cipherText;
     }
 

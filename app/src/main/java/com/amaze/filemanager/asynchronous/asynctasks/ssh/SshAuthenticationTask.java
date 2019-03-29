@@ -22,7 +22,6 @@
 package com.amaze.filemanager.asynchronous.asynctasks.ssh;
 
 import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.annotation.NonNull;
@@ -112,17 +111,17 @@ public class SshAuthenticationTask extends AsyncTask<Void, Void, AsyncTaskResult
             {
                 sshClient.authPublickey(username, new KeyProvider() {
                     @Override
-                    public PrivateKey getPrivate() throws IOException {
+                    public PrivateKey getPrivate() {
                         return privateKey.getPrivate();
                     }
 
                     @Override
-                    public PublicKey getPublic() throws IOException {
+                    public PublicKey getPublic() {
                         return privateKey.getPublic();
                     }
 
                     @Override
-                    public KeyType getType() throws IOException {
+                    public KeyType getType() {
                         return KeyType.fromKey(getPublic());
                     }
                 });
@@ -149,34 +148,25 @@ public class SshAuthenticationTask extends AsyncTask<Void, Void, AsyncTaskResult
             if(SocketException.class.isAssignableFrom(result.exception.getClass())
                     || SocketTimeoutException.class.isAssignableFrom(result.exception.getClass())) {
                 Toast.makeText(AppConfig.getInstance(),
-                        String.format(AppConfig.getInstance().getResources().getString(R.string.ssh_connect_failed),
+                        AppConfig.getInstance().getResources().getString(R.string.ssh_connect_failed,
                                 hostname, port, result.exception.getLocalizedMessage()),
                         Toast.LENGTH_LONG).show();
-                return;
             }
             else if(TransportException.class.isAssignableFrom(result.exception.getClass()))
             {
                 DisconnectReason disconnectReason = TransportException.class.cast(result.exception).getDisconnectReason();
                 if(DisconnectReason.HOST_KEY_NOT_VERIFIABLE.equals(disconnectReason)) {
-                    new AlertDialog.Builder(AppConfig.getInstance().getActivityContext())
+                    new AlertDialog.Builder(AppConfig.getInstance().getMainActivityContext())
                             .setTitle(R.string.ssh_connect_failed_host_key_changed_title)
                             .setMessage(R.string.ssh_connect_failed_host_key_changed_message)
-                            .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    dialog.dismiss();
-                                }
-                            }).show();
+                            .setPositiveButton(R.string.ok, (dialog, which) -> dialog.dismiss()).show();
                 }
-                return;
             }
             else if(password != null) {
                 Toast.makeText(AppConfig.getInstance(), R.string.ssh_authentication_failure_password, Toast.LENGTH_LONG).show();
-                return;
             }
             else if(privateKey != null) {
                 Toast.makeText(AppConfig.getInstance(), R.string.ssh_authentication_failure_key, Toast.LENGTH_LONG).show();
-                return;
             }
         }
     }

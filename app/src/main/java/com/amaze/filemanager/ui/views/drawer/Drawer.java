@@ -1,3 +1,27 @@
+/*
+ * Drawer.java
+ *
+ * Copyright (C) 2014-2018 Arpit Khurana <arpitkh96@gmail.com>, Vishal Nehra <vishalmeham2@gmail.com>,
+ * Emmanuel Messulam<emmanuelbendavid@gmail.com>, Raymond Lai <airwave209gt at gmail.com>,
+ * Mitch West<mitch9378dev@gmail.com> and Contributors.
+ *
+ * This file is part of Amaze File Manager.
+ *
+ * Amaze File Manager is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
 package com.amaze.filemanager.ui.views.drawer;
 
 import android.content.Intent;
@@ -22,8 +46,9 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
-import android.widget.Toast;
 
+import com.afollestad.materialdialogs.DialogAction;
+import com.afollestad.materialdialogs.MaterialDialog;
 import com.amaze.filemanager.BuildConfig;
 import com.amaze.filemanager.R;
 import com.amaze.filemanager.activities.MainActivity;
@@ -31,9 +56,10 @@ import com.amaze.filemanager.activities.PreferencesActivity;
 import com.amaze.filemanager.database.CloudHandler;
 import com.amaze.filemanager.filesystem.HybridFile;
 import com.amaze.filemanager.filesystem.RootHelper;
+import com.amaze.filemanager.filesystem.usb.SingletonUsbOtg;
 import com.amaze.filemanager.fragments.AppsListFragment;
 import com.amaze.filemanager.fragments.CloudSheetFragment;
-import com.amaze.filemanager.fragments.FTPServerFragment;
+import com.amaze.filemanager.fragments.FtpServerFragment;
 import com.amaze.filemanager.fragments.MainFragment;
 import com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants;
 import com.amaze.filemanager.fragments.preference_fragments.QuickAccessPref;
@@ -47,7 +73,6 @@ import com.amaze.filemanager.utils.TinyDB;
 import com.amaze.filemanager.utils.Utils;
 import com.amaze.filemanager.utils.application.AppConfig;
 import com.amaze.filemanager.utils.cloud.CloudUtil;
-import com.amaze.filemanager.utils.color.ColorUsage;
 import com.amaze.filemanager.utils.files.FileUtils;
 import com.amaze.filemanager.utils.theme.AppTheme;
 import com.android.volley.VolleyError;
@@ -83,11 +108,11 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
 
     private MainActivity mainActivity;
     private Resources resources;
-    private DataUtils dataUtils = DataUtils.getInstance();
+    private DataUtils dataUtils;
 
     private ActionViewStateManager actionViewStateManager;
     private boolean isSomethingSelected;
-    private volatile int storage_count = 0; // number of storage available (internal/external/otg etc)
+    private volatile int phoneStorageCount = 0; // number of storage available (internal/external/otg etc)
     private boolean isDrawerLocked = false;
     private FragmentTransaction pending_fragmentTransaction;
     private String pendingPath;
@@ -100,12 +125,18 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
     private RelativeLayout drawerHeaderParent;
     private View drawerHeaderLayout, drawerHeaderView;
 
+    /**
+     * Tablet is defined as 'width > 720dp'
+     */
+    private boolean isOnTablet = false;
+
     public Drawer(MainActivity mainActivity) {
         this.mainActivity = mainActivity;
         resources = mainActivity.getResources();
+        dataUtils = DataUtils.getInstance();
 
         drawerHeaderLayout = mainActivity.getLayoutInflater().inflate(R.layout.drawerheader, null);
-        drawerHeaderParent = (RelativeLayout) drawerHeaderLayout.findViewById(R.id.drawer_header_parent);
+        drawerHeaderParent = drawerHeaderLayout.findViewById(R.id.drawer_header_parent);
         drawerHeaderView = drawerHeaderLayout.findViewById(R.id.drawer_header);
         drawerHeaderView.setOnLongClickListener(v -> {
             Intent intent1;
@@ -127,14 +158,13 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
         navView = mainActivity.findViewById(R.id.navigation);
 
         //set width of drawer in portrait to follow material guidelines
-        if(!Utils.isDeviceInLandScape(mainActivity)){
+        /*if(!Utils.isDeviceInLandScape(mainActivity)){
             setNavViewDimension(navView);
-        }
+        }*/
 
         navView.setNavigationItemSelectedListener(this);
 
-        int accentColor = mainActivity.getColorPreference().getColor(ColorUsage.ACCENT),
-                idleColor;
+        int accentColor = mainActivity.getAccent(), idleColor;
 
         if (mainActivity.getAppTheme().equals(AppTheme.LIGHT)) {
             idleColor = mainActivity.getResources().getColor(R.color.item_light_theme);
@@ -142,7 +172,7 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
             idleColor = Color.WHITE;
         }
 
-        actionViewStateManager = new ActionViewStateManager(navView, idleColor, accentColor);
+        actionViewStateManager = new ActionViewStateManager(idleColor, accentColor);
 
         ColorStateList drawerColors = new ColorStateList(
                 new int[][] {
@@ -171,12 +201,13 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
         drawerHeaderView.setBackgroundResource(R.drawable.amaze_header);
         //drawerHeaderParent.setBackgroundColor(Color.parseColor((currentTab==1 ? skinTwo : skin)));
         if (mainActivity.findViewById(R.id.tab_frame) != null) {
+            isOnTablet = true;
             lock(DrawerLayout.LOCK_MODE_LOCKED_OPEN);
             open();
             mDrawerLayout.setScrimColor(Color.TRANSPARENT);
             mDrawerLayout.post(this::open);
         } else if (mainActivity.findViewById(R.id.tab_frame) == null) {
-            unlock();
+            unlockIfNotOnTablet();
             close();
             mDrawerLayout.post(this::close);
         }
@@ -225,29 +256,38 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
 
         int order = 0;
         ArrayList<String> storageDirectories = mainActivity.getStorageDirectories();
-        storage_count = 0;
+        phoneStorageCount = 0;
         for (String file : storageDirectories) {
+            if (file.contains(OTGUtil.PREFIX_OTG)) {
+                addNewItem(menu, STORAGES_GROUP, order++, "OTG", new MenuMetadata(file),
+                        R.drawable.ic_usb_white_24dp, R.drawable.ic_show_chart_black_24dp);
+                continue;
+            }
+
             File f = new File(file);
             String name;
-            @DrawableRes int icon1 = R.drawable.ic_sd_storage_white_24dp;
+            @DrawableRes int icon1;
             if ("/storage/emulated/legacy".equals(file) || "/storage/emulated/0".equals(file) || "/mnt/sdcard".equals(file)) {
-                name = resources.getString(R.string.storage);
+                name = resources.getString(R.string.internalstorage);
+                icon1 = R.drawable.ic_phone_android_white_24dp;
             } else if ("/storage/sdcard1".equals(file)) {
                 name = resources.getString(R.string.extstorage);
+                icon1 = R.drawable.ic_sd_storage_white_24dp;
             } else if ("/".equals(file)) {
                 name = resources.getString(R.string.rootdirectory);
                 icon1 = R.drawable.ic_drawer_root_white;
-            } else if (file.contains(OTGUtil.PREFIX_OTG)) {
-                name = "OTG";
-                icon1 = R.drawable.ic_usb_white_24dp;
-            } else name = f.getName();
+            } else {
+                name = f.getName();
+                icon1 = R.drawable.ic_sd_storage_white_24dp;
+            }
+
             if (f.isDirectory() || f.canExecute()) {
                 addNewItem(menu, STORAGES_GROUP, order++, name, new MenuMetadata(file), icon1,
                         R.drawable.ic_show_chart_black_24dp);
-                if(storage_count == 0) firstPath = file;
-                else if(storage_count == 1) secondPath = file;
+                if(phoneStorageCount == 0) firstPath = file;
+                else if(phoneStorageCount == 1) secondPath = file;
 
-                storage_count++;
+                phoneStorageCount++;
             }
         }
         dataUtils.setStorages(storageDirectories);
@@ -267,10 +307,12 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
 
         if (CloudSheetFragment.isCloudProviderAvailable(mainActivity)) {
             for (CloudStorage cloudStorage : dataUtils.getAccounts()) {
+                @DrawableRes int deleteIcon = R.drawable.ic_delete_grey_24dp;
+
                 if (cloudStorage instanceof Dropbox) {
                     addNewItem(menu, CLOUDS_GROUP, order++, CloudHandler.CLOUD_NAME_DROPBOX,
                             new MenuMetadata(CloudHandler.CLOUD_PREFIX_DROPBOX + "/"),
-                            R.drawable.ic_dropbox_white_24dp, R.drawable.ic_edit_24dp);
+                            R.drawable.ic_dropbox_white_24dp, deleteIcon);
 
                     accountAuthenticationList.add(new String[] {
                             CloudHandler.CLOUD_NAME_DROPBOX,
@@ -279,7 +321,7 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
                 } else if (cloudStorage instanceof Box) {
                     addNewItem(menu, CLOUDS_GROUP, order++, CloudHandler.CLOUD_NAME_BOX,
                             new MenuMetadata(CloudHandler.CLOUD_PREFIX_BOX + "/"),
-                            R.drawable.ic_box_white_24dp, R.drawable.ic_edit_24dp);
+                            R.drawable.ic_box_white_24dp, deleteIcon);
 
                     accountAuthenticationList.add(new String[] {
                             CloudHandler.CLOUD_NAME_BOX,
@@ -288,7 +330,7 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
                 } else if (cloudStorage instanceof OneDrive) {
                     addNewItem(menu, CLOUDS_GROUP, order++, CloudHandler.CLOUD_NAME_ONE_DRIVE,
                             new MenuMetadata(CloudHandler.CLOUD_PREFIX_ONE_DRIVE + "/"),
-                            R.drawable.ic_onedrive_white_24dp, R.drawable.ic_edit_24dp);
+                            R.drawable.ic_onedrive_white_24dp, deleteIcon);
 
                     accountAuthenticationList.add(new String[] {
                             CloudHandler.CLOUD_NAME_ONE_DRIVE,
@@ -297,7 +339,7 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
                 } else if (cloudStorage instanceof GoogleDrive) {
                     addNewItem(menu, CLOUDS_GROUP, order++, CloudHandler.CLOUD_NAME_GOOGLE_DRIVE,
                             new MenuMetadata(CloudHandler.CLOUD_PREFIX_GOOGLE_DRIVE + "/"),
-                            R.drawable.ic_google_drive_white_24dp, R.drawable.ic_edit_24dp);
+                            R.drawable.ic_google_drive_white_24dp, deleteIcon);
 
                     accountAuthenticationList.add(new String[] {
                             CloudHandler.CLOUD_NAME_GOOGLE_DRIVE,
@@ -360,7 +402,7 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
         addNewItem(menu, LASTGROUP, order++, R.string.ftp,
                 new MenuMetadata(() -> {
                     FragmentTransaction transaction2 = mainActivity.getSupportFragmentManager().beginTransaction();
-                    transaction2.replace(R.id.content_frame, new FTPServerFragment());
+                    transaction2.replace(R.id.content_frame, new FtpServerFragment());
                     mainActivity.getAppbar()
                             .getAppbarLayout()
                             .animate()
@@ -535,18 +577,17 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
                     CloudUtil.checkToken(meta.path, mainActivity);
                 }
 
-                pendingPath = meta.path;
-
-                if (meta.path.contains(OTGUtil.PREFIX_OTG) &&
-                        mainActivity.getPrefs()
-                                .getString(MainActivity.KEY_PREF_OTG, null)
-                                .equals(MainActivity.VALUE_PREF_OTG_NULL)) {
-                    // we've not gotten otg path yet
-                    // start system request for storage access framework
-                    Toast.makeText(mainActivity, mainActivity.getString(R.string.otg_access), Toast.LENGTH_LONG).show();
-                    Intent safIntent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                    mainActivity.startActivityForResult(safIntent, mainActivity.REQUEST_CODE_SAF);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                        && meta.path.contains(OTGUtil.PREFIX_OTG)
+                        && SingletonUsbOtg.getInstance().getUsbOtgRoot() == null) {
+                    MaterialDialog dialog = GeneralDialogCreation.showOtgSafExplanationDialog(mainActivity);
+                    dialog.getActionButton(DialogAction.POSITIVE).setOnClickListener((v) -> {
+                        Intent safIntent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                        mainActivity.startActivityForResult(safIntent, MainActivity.REQUEST_CODE_SAF);
+                        dialog.dismiss();
+                    });
                 } else {
+                    pendingPath = meta.path;
                     closeIfNotLocked();
                     if (isLocked()) { onDrawerClosed(); }
                 }
@@ -603,8 +644,8 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
         isSomethingSelected = isSelected;
     }
 
-    public int getStorageCount() {
-        return storage_count;
+    public int getPhoneStorageCount() {
+        return phoneStorageCount;
     }
 
     public void setDrawerHeaderBackground() {
@@ -684,13 +725,40 @@ public class Drawer implements NavigationView.OnNavigationItemSelectedListener {
      * @param mode {@link DrawerLayout#LOCK_MODE_LOCKED_CLOSED},
      *              {@link DrawerLayout#LOCK_MODE_LOCKED_OPEN}
      *             or {@link DrawerLayout#LOCK_MODE_UNDEFINED}
+     *
+     * @throws IllegalArgumentException if you try to {{@link DrawerLayout#LOCK_MODE_LOCKED_OPEN}
+     *             or {@link DrawerLayout#LOCK_MODE_UNDEFINED} on a tablet
      */
-    public void lock(int mode) {
+    private void lock(int mode) {
+        if(isOnTablet && mode != DrawerLayout.LOCK_MODE_LOCKED_OPEN) {
+            throw new IllegalArgumentException("You can't lock closed or unlock drawer in tablet!");
+        }
+
         mDrawerLayout.setDrawerLockMode(mode, navView);
         isDrawerLocked = true;
     }
 
-    public void unlock() {
+    /**
+     * Does nothing on tablets {@link #isOnTablet}
+     *
+     * @param mode {@link DrawerLayout#LOCK_MODE_LOCKED_CLOSED},
+     *              {@link DrawerLayout#LOCK_MODE_LOCKED_OPEN}
+     *             or {@link DrawerLayout#LOCK_MODE_UNDEFINED}
+     */
+    public void lockIfNotOnTablet(int mode) {
+        if(isOnTablet) {
+            return;
+        }
+
+        mDrawerLayout.setDrawerLockMode(mode, navView);
+        isDrawerLocked = true;
+    }
+
+    public void unlockIfNotOnTablet() {
+        if(isOnTablet) {
+            return;
+        }
+
         mDrawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, navView);
         isDrawerLocked = false;
     }

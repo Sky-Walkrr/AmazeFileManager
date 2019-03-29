@@ -61,6 +61,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -77,9 +78,11 @@ import com.amaze.filemanager.asynchronous.handlers.FileHandler;
 import com.amaze.filemanager.asynchronous.services.CopyService;
 import com.amaze.filemanager.database.CloudHandler;
 import com.amaze.filemanager.database.CryptHandler;
+import com.amaze.filemanager.database.SortHandler;
 import com.amaze.filemanager.database.models.EncryptedEntry;
 import com.amaze.filemanager.database.models.Tab;
 import com.amaze.filemanager.filesystem.CustomFileObserver;
+import com.amaze.filemanager.filesystem.FileUtil;
 import com.amaze.filemanager.filesystem.HybridFile;
 import com.amaze.filemanager.filesystem.HybridFileParcelable;
 import com.amaze.filemanager.filesystem.MediaStoreHack;
@@ -90,6 +93,7 @@ import com.amaze.filemanager.ui.icons.MimeTypes;
 import com.amaze.filemanager.ui.views.DividerItemDecoration;
 import com.amaze.filemanager.ui.views.FastScroller;
 import com.amaze.filemanager.ui.views.RoundedImageView;
+import com.amaze.filemanager.ui.views.WarnableTextInputValidator;
 import com.amaze.filemanager.utils.BottomBarButtonPath;
 import com.amaze.filemanager.utils.DataUtils;
 import com.amaze.filemanager.utils.MainActivityHelper;
@@ -99,7 +103,6 @@ import com.amaze.filemanager.utils.ServiceWatcherUtil;
 import com.amaze.filemanager.utils.SmbStreamer.Streamer;
 import com.amaze.filemanager.utils.Utils;
 import com.amaze.filemanager.utils.cloud.CloudUtil;
-import com.amaze.filemanager.utils.color.ColorUsage;
 import com.amaze.filemanager.utils.files.CryptUtil;
 import com.amaze.filemanager.utils.files.EncryptDecryptUtils;
 import com.amaze.filemanager.utils.files.FileListSorter;
@@ -128,13 +131,14 @@ import static com.amaze.filemanager.fragments.preference_fragments.PreferencesCo
 public class MainFragment extends android.support.v4.app.Fragment implements BottomBarButtonPath {
 
     public ActionMode mActionMode;
+    //TODO refactor
     public int sortby, dsort, asc;
     public String home;
     public boolean selection, results = false;
     public OpenMode openMode = OpenMode.FILE;
 
     /**
-     * {@link MainFragment#IS_LIST} boolean to identify if the view is a list or grid
+     * boolean to identify if the view is a list or grid
      */
     public boolean IS_LIST = true;
     public SwipeRefreshLayout mSwipeRefreshLayout;
@@ -148,7 +152,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
      * This is not an exact copy of the elements in the adapter
      */
     private ArrayList<LayoutElementParcelable> LIST_ELEMENTS;
-    private RecyclerAdapter adapter;
+    public RecyclerAdapter adapter;
     private SharedPreferences sharedPref;
     private Resources res;
 
@@ -170,7 +174,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
     private View actionModeView;
     private FastScroller fastScroller;
     private CustomFileObserver customFileObserver;
-    private DataUtils dataUtils = DataUtils.getInstance();
+    private DataUtils dataUtils;
     private boolean isEncryptOpen = false;       // do we have to open a file when service is begin destroyed
     private HybridFileParcelable encryptBaseFile;            // the cached base file which we're to open, delete it later
 
@@ -200,6 +204,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
         setRetainInstance(true);
 
+        dataUtils = DataUtils.getInstance();
         utilsProvider = getMainActivity().getUtilsProvider();
         sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
         res = getResources();
@@ -210,9 +215,9 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
         IS_LIST = dataUtils.getListOrGridForPath(CURRENT_PATH, DataUtils.LIST) == DataUtils.LIST;
 
-        accentColor = getMainActivity().getColorPreference().getColor(ColorUsage.ACCENT);
-        primaryColor = getMainActivity().getColorPreference().getColor(ColorUsage.PRIMARY);
-        primaryTwoColor = getMainActivity().getColorPreference().getColor(ColorUsage.PRIMARY_TWO);
+        accentColor = getMainActivity().getAccent();
+        primaryColor = getMainActivity().getCurrentColorPreference().primaryFirstTab;
+        primaryTwoColor = getMainActivity().getCurrentColorPreference().primarySecondTab;
     }
 
     public void stopAnimation() {
@@ -229,9 +234,9 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         rootView = inflater.inflate(R.layout.main_frag, container, false);
         setRetainInstance(true);
-        listView = (android.support.v7.widget.RecyclerView) rootView.findViewById(R.id.listView);
+        listView = rootView.findViewById(R.id.listView);
         mToolbarContainer = getMainActivity().getAppbar().getAppbarLayout();
-        fastScroller = (FastScroller) rootView.findViewById(R.id.fastscroll);
+        fastScroller = rootView.findViewById(R.id.fastscroll);
         fastScroller.setPressedHandleColor(accentColor);
         listView.setOnTouchListener((view, motionEvent) -> {
             if (adapter != null && stopAnims) {
@@ -248,7 +253,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
             return false;
         });
 
-        mSwipeRefreshLayout = (SwipeRefreshLayout) rootView.findViewById(R.id.activity_main_swipe_refresh_layout);
+        mSwipeRefreshLayout = rootView.findViewById(R.id.activity_main_swipe_refresh_layout);
 
         mSwipeRefreshLayout.setOnRefreshListener(() -> loadlist((CURRENT_PATH), false, openMode));
 
@@ -499,7 +504,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
             // do not allow drawer to open when item gets selected
             if (!getMainActivity().getDrawer().isLocked()) {
-                getMainActivity().getDrawer().lock(DrawerLayout.LOCK_MODE_UNDEFINED);
+                getMainActivity().getDrawer().lockIfNotOnTablet(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
             }
             return true;
         }
@@ -512,7 +517,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
          */
         public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
             ArrayList<LayoutElementParcelable> positions = adapter.getCheckedItems();
-            TextView textView1 = (TextView) actionModeView.findViewById(R.id.item_count);
+            TextView textView1 = actionModeView.findViewById(R.id.item_count);
             textView1.setText(String.valueOf(positions.size()));
             textView1.setOnClickListener(null);
             mode.setTitle(positions.size() + "");
@@ -693,7 +698,6 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                     return true;
                 case R.id.rename:
 
-                    final ActionMode m = mode;
                     final HybridFileParcelable f;
                     f = checkedItems.get(0).generateBaseFile();
                     rename(f);
@@ -771,8 +775,8 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
             getMainActivity().updateViews(new ColorDrawable(MainActivity.currentTab == 1 ?
                     primaryTwoColor : primaryColor));
 
-            if (!getMainActivity().getDrawer().isLocked()) {
-                getMainActivity().getDrawer().unlock();
+            if (getMainActivity().getDrawer().isLocked()) {
+                getMainActivity().getDrawer().unlockIfNotOnTablet();
             }
         }
     };
@@ -818,7 +822,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                             mediaScannerConnection = new MediaScannerConnection(context, mediaScannerConnectionClient);
                             //FileUtils.scanFile(context, mediaScannerConnection, path);
                         } else {
-                            FileUtils.scanFile(arg, context);
+                            FileUtils.scanFile(new File(arg), context);
                         }
                     }
                     //break;
@@ -916,12 +920,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                     } else {
                         switch (e.getMode()) {
                             case SMB:
-                                try {
-                                    SmbFile smbFile = new SmbFile(e.desc);
-                                    launchSMB(smbFile, e.longSize, getMainActivity());
-                                } catch (MalformedURLException ex) {
-                                    ex.printStackTrace();
-                                }
+                                launchSMB(e.generateBaseFile(), getMainActivity());
                                 break;
                             case SFTP:
                                 Toast.makeText(getContext(), getResources().getString(R.string.please_wait), Toast.LENGTH_LONG).show();
@@ -981,7 +980,6 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
     /**
      * Returns the intent with uri corresponding to specific {@link HybridFileParcelable} back to external app
-     * @param baseFile
      */
     public void returnIntentResults(HybridFileParcelable baseFile) {
 
@@ -1045,7 +1043,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
     }
 
     void initNoFileLayout() {
-        nofilesview = (SwipeRefreshLayout) rootView.findViewById(R.id.nofilelayout);
+        nofilesview = rootView.findViewById(R.id.nofilelayout);
         nofilesview.setColorSchemeColors(accentColor);
         nofilesview.setOnRefreshListener(() -> {
             loadlist((CURRENT_PATH), false, openMode);
@@ -1178,9 +1176,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
     private LayoutElementParcelable getBackElement() {
         if (back == null) {
-            back = new LayoutElementParcelable("..", "", "",
-                    getString(R.string.goback), 0, false, true,
-                    "", getBoolean(PREFERENCE_SHOW_THUMB));
+            back = new LayoutElementParcelable(true, getString(R.string.goback), getBoolean(PREFERENCE_SHOW_THUMB));
         }
 
         return back;
@@ -1219,33 +1215,44 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
      * @param f the file to rename
      */
     public void rename(final HybridFileParcelable f) {
-        MaterialDialog.Builder builder = new MaterialDialog.Builder(getActivity());
-        String name = f.getName();
-        builder.input("", name, false, (materialDialog, charSequence) -> {});
-        builder.theme(utilsProvider.getAppTheme().getMaterialDialogTheme());
-        builder.title(getResources().getString(R.string.rename));
+        MaterialDialog renameDialog = GeneralDialogCreation.showNameDialog(getMainActivity(),
+            "",
+            f.getName(),
+            getResources().getString(R.string.rename),
+            getResources().getString(R.string.save),
+            null,
+            getResources().getString(R.string.cancel),
+            (dialog, which) -> {
+                EditText textfield = dialog.getCustomView().findViewById(R.id.singleedittext_input);
+                String name1 = textfield.getText().toString();
 
-        builder.onNegative((dialog, which) -> dialog.cancel());
+                if (f.isSmb()){
+                    if (f.isDirectory() && !name1.endsWith("/"))
+                        name1 = name1 + "/";
+                }
+                getMainActivity().mainActivityHelper.rename(openMode, f.getPath(),
+                        CURRENT_PATH + "/" + name1, getActivity(), getMainActivity().isRootExplorer());
+            }, (text)-> {
+                    boolean isValidFilename = FileUtil.isValidFilename(text);
 
-        builder.onPositive((dialog, which) -> {
-            String name1 = dialog.getInputEditText().getText().toString();
-            getMainActivity().mainActivityHelper.rename(openMode, f.getPath(),
-                    CURRENT_PATH + "/" + name1, getActivity(), getMainActivity().isRootExplorer());
-        });
+                    if (!isValidFilename) {
+                        return new WarnableTextInputValidator.ReturnState(
+                                WarnableTextInputValidator.ReturnState.STATE_ERROR, R.string.invalid_name);
+                    } else if (text.length() < 1) {
+                        return new WarnableTextInputValidator.ReturnState(
+                                WarnableTextInputValidator.ReturnState.STATE_ERROR, R.string.field_empty);
+                    }
 
-        builder.positiveText(R.string.save);
-        builder.negativeText(R.string.cancel);
-        builder.positiveColor(accentColor).negativeColor(accentColor).widgetColor(accentColor);
-        final MaterialDialog materialDialog = builder.build();
-        materialDialog.show();
-        Log.d(getClass().getSimpleName(), f.getNameString(getContext()));
+                    return new WarnableTextInputValidator.ReturnState();
+            });
 
         // place cursor at the starting of edit text by posting a runnable to edit text
         // this is done because in case android has not populated the edit text layouts yet, it'll
         // reset calls to selection if not posted in message queue
-        materialDialog.getInputEditText().post(() -> {
+        EditText textfield = renameDialog.getCustomView().findViewById(R.id.singleedittext_input);
+        textfield.post(() -> {
             if (!f.isDirectory()) {
-                materialDialog.getInputEditText().setSelection(f.getNameString(getContext()).length());
+                textfield.setSelection(f.getNameString(getContext()).length());
             }
         });
     }
@@ -1422,11 +1429,11 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
      * Final value of {@link #sortby} varies from 0 to 3
      */
     public void getSortModes() {
-        int t = Integer.parseInt(sharedPref.getString("sortby", "0"));
+        int t = SortHandler.getSortType(getContext(), getCurrentPath());
         if (t <= 3) {
             sortby = t;
             asc = 1;
-        } else if (t > 3) {
+        } else {
             asc = -1;
             sortby = t - 4;
         }
@@ -1472,17 +1479,18 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
             if (!isEncryptOpen && encryptBaseFiles.size() != 0) {
                 // we've opened the file and are ready to delete it
-                new DeleteTask(getMainActivity().getContentResolver(), getActivity()).execute(encryptBaseFiles);
+                new DeleteTask(getActivity()).execute(encryptBaseFiles);
             }
         }
     }
 
-    public ArrayList<LayoutElementParcelable> addToSmb(SmbFile[] mFile, String path) throws SmbException {
-        ArrayList<LayoutElementParcelable> a = new ArrayList<>();
+    public ArrayList<LayoutElementParcelable> addToSmb(SmbFile[] mFile, String path, boolean showHiddenFiles) throws SmbException {
+        ArrayList<LayoutElementParcelable> smbFileList = new ArrayList<>();
         if (searchHelper.size() > 500) searchHelper.clear();
         for (SmbFile aMFile : mFile) {
-            if (dataUtils.isFileHidden(aMFile.getPath()))
+            if ((dataUtils.isFileHidden(aMFile.getPath()) || aMFile.isHidden()) && !showHiddenFiles) {
                 continue;
+            }
             String name = aMFile.getName();
             name = (aMFile.isDirectory() && name.endsWith("/")) ? name.substring(0, name.length() - 1) : name;
             if (path.equals(smbPath)) {
@@ -1494,27 +1502,23 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                 LayoutElementParcelable layoutElement = new LayoutElementParcelable(name, aMFile.getPath(),
                         "", "", "", 0, false,
                         aMFile.lastModified() + "", true,
-                        getBoolean(PREFERENCE_SHOW_THUMB));
+                        getBoolean(PREFERENCE_SHOW_THUMB), OpenMode.SMB);
 
-                layoutElement.setMode(OpenMode.SMB);
                 searchHelper.add(layoutElement.generateBaseFile());
-                a.add(layoutElement);
+                smbFileList.add(layoutElement);
+
             } else {
                 file_count++;
-                try {
-                    LayoutElementParcelable layoutElement = new LayoutElementParcelable(name,
-                            aMFile.getPath(), "", "", Formatter.formatFileSize(getContext(),
-                            aMFile.length()), aMFile.length(), false, aMFile.lastModified() + "",
-                            false, getBoolean(PREFERENCE_SHOW_THUMB));
-                    layoutElement.setMode(OpenMode.SMB);
-                    searchHelper.add(layoutElement.generateBaseFile());
-                    a.add(layoutElement);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                LayoutElementParcelable layoutElement = new LayoutElementParcelable(name,
+                        aMFile.getPath(), "", "", Formatter.formatFileSize(getContext(),
+                        aMFile.length()), aMFile.length(), false, aMFile.lastModified() + "",
+                        false, getBoolean(PREFERENCE_SHOW_THUMB), OpenMode.SMB);
+                layoutElement.setMode(OpenMode.SMB);
+                searchHelper.add(layoutElement.generateBaseFile());
+                smbFileList.add(layoutElement);
             }
         }
-        return a;
+        return smbFileList;
     }
 
     // method to add search result entry to the LIST_ELEMENT arrayList
@@ -1525,11 +1529,10 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
             if (mFile.isDirectory()) {
                 size = "";
                 LayoutElementParcelable layoutElement = new LayoutElementParcelable(f.getPath(), mFile.getPermission(),
-                        mFile.getLink(), size, 0, true, false,
-                        mFile.getDate() + "",
-                        getBoolean(PREFERENCE_SHOW_THUMB));
+                        mFile.getLink(), size, 0, true,
+                        mFile.getDate() + "", false,
+                        getBoolean(PREFERENCE_SHOW_THUMB), mFile.getMode());
 
-                layoutElement.setMode(mFile.getMode());
                 LIST_ELEMENTS.add(layoutElement);
                 folder_count++;
                 return layoutElement;
@@ -1549,9 +1552,8 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                 try {
                     LayoutElementParcelable layoutElement = new LayoutElementParcelable(f.getPath(),
                             mFile.getPermission(), mFile.getLink(), size, longSize, false,
-                            false, mFile.getDate() + "",
-                            getBoolean(PREFERENCE_SHOW_THUMB));
-                    layoutElement.setMode(mFile.getMode());
+                            mFile.getDate() + "", false,
+                            getBoolean(PREFERENCE_SHOW_THUMB), mFile.getMode());
                     LIST_ELEMENTS.add(layoutElement);
                     file_count++;
                     return layoutElement;
@@ -1575,7 +1577,8 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
     public void hide(String path) {
 
         dataUtils.addHiddenFile(path);
-        if (new File(path).isDirectory()) {
+        File file = new File(path);
+        if (file.isDirectory()) {
             File f1 = new File(path + "/" + ".nomedia");
             if (!f1.exists()) {
                 try {
@@ -1584,7 +1587,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                     e.printStackTrace();
                 }
             }
-            FileUtils.scanFile(path, getActivity());
+            FileUtils.scanFile(file, getActivity());
         }
 
     }
@@ -1676,7 +1679,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
-    public static void launchSMB(final SmbFile smbFile, final long si, final Activity activity) {
+    public static void launchSMB(final HybridFileParcelable baseFile, final Activity activity) {
         final Streamer s = Streamer.getInstance();
         new Thread() {
             public void run() {
@@ -1691,12 +1694,12 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                     }
                     */
 
-                    s.setStreamSrc(smbFile, si);
+                    s.setStreamSrc(new SmbFile(baseFile.getPath()), baseFile.getSize());
                     activity.runOnUiThread(() -> {
                         try {
-                            Uri uri = Uri.parse(Streamer.URL + Uri.fromFile(new File(Uri.parse(smbFile.getPath()).getPath())).getEncodedPath());
+                            Uri uri = Uri.parse(Streamer.URL + Uri.fromFile(new File(Uri.parse(baseFile.getPath()).getPath())).getEncodedPath());
                             Intent i = new Intent(Intent.ACTION_VIEW);
-                            i.setDataAndType(uri, MimeTypes.getMimeType(smbFile.getPath(), smbFile.isDirectory()));
+                            i.setDataAndType(uri, MimeTypes.getMimeType(baseFile.getPath(), baseFile.isDirectory()));
                             PackageManager packageManager = activity.getPackageManager();
                             List<ResolveInfo> resInfos = packageManager.queryIntentActivities(i, 0);
                             if (resInfos != null && resInfos.size() > 0)
@@ -1705,7 +1708,7 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                                 Toast.makeText(activity,
                                         activity.getResources().getString(R.string.smb_launch_error),
                                         Toast.LENGTH_SHORT).show();
-                        } catch (ActivityNotFoundException | SmbException e) {
+                        } catch (ActivityNotFoundException e) {
                             e.printStackTrace();
                         }
                     });

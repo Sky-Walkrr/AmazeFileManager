@@ -99,7 +99,6 @@ public class Indicator extends View implements ViewPager.OnPageChangeListener,
 
     // animation
     private ValueAnimator moveAnimation;
-    private AnimatorSet joiningAnimationSet;
     private PendingRetreatAnimator retreatAnimation;
     private PendingRevealAnimator[] revealAnimations;
     private final Interpolator interpolator;
@@ -364,9 +363,6 @@ public class Indicator extends View implements ViewPager.OnPageChangeListener,
      *
      * This function returns a path for the given dot **and any action to it's right** e.g. joining
      * or retreating from it's neighbour
-     *
-     * @param page
-     * @return
      */
     private Path getUnselectedPath(int page,
                                    float centerX,
@@ -600,14 +596,11 @@ public class Indicator extends View implements ViewPager.OnPageChangeListener,
                 pageChanging = false;
             }
         });
-        moveSelected.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                // todo avoid autoboxing
-                selectedDotX = (Float) valueAnimator.getAnimatedValue();
-                retreatAnimation.startIfNecessary(selectedDotX);
-                postInvalidateOnAnimation();
-            }
+        moveSelected.addUpdateListener(valueAnimator -> {
+            // todo avoid autoboxing
+            selectedDotX = (Float) valueAnimator.getAnimatedValue();
+            retreatAnimation.startIfNecessary(selectedDotX);
+            postInvalidateOnAnimation();
         });
         moveSelected.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -655,9 +648,7 @@ public class Indicator extends View implements ViewPager.OnPageChangeListener,
     }
 
     private void cancelJoiningAnimations() {
-        if (joiningAnimationSet != null && joiningAnimationSet.isRunning()) {
-            joiningAnimationSet.cancel();
-        }
+        // TODO: 20/08/18 ?
     }
 
     /**
@@ -719,16 +710,13 @@ public class Indicator extends View implements ViewPager.OnPageChangeListener,
                             new RightwardStartPredicate(dotCenterX[was + i]));
                     dotsToHide[i] = was + i;
                 }
-                addUpdateListener(new AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                        // todo avoid autoboxing
-                        retreatingJoinX1 = (Float) valueAnimator.getAnimatedValue();
-                        postInvalidateOnAnimation();
-                        // start any reveal animations if we've passed them
-                        for (PendingRevealAnimator pendingReveal : revealAnimations) {
-                            pendingReveal.startIfNecessary(retreatingJoinX1);
-                        }
+                addUpdateListener(valueAnimator -> {
+                    // todo avoid autoboxing
+                    retreatingJoinX1 = (Float) valueAnimator.getAnimatedValue();
+                    postInvalidateOnAnimation();
+                    // start any reveal animations if we've passed them
+                    for (PendingRevealAnimator pendingReveal : revealAnimations) {
+                        pendingReveal.startIfNecessary(retreatingJoinX1);
                     }
                 });
             } else { // (initialX2 != finalX2) leftward retreat
@@ -739,16 +727,13 @@ public class Indicator extends View implements ViewPager.OnPageChangeListener,
                             new LeftwardStartPredicate(dotCenterX[was - i]));
                     dotsToHide[i] = was - i;
                 }
-                addUpdateListener(new AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                        // todo avoid autoboxing
-                        retreatingJoinX2 = (Float) valueAnimator.getAnimatedValue();
-                        postInvalidateOnAnimation();
-                        // start any reveal animations if we've passed them
-                        for (PendingRevealAnimator pendingReveal : revealAnimations) {
-                            pendingReveal.startIfNecessary(retreatingJoinX2);
-                        }
+                addUpdateListener(valueAnimator -> {
+                    // todo avoid autoboxing
+                    retreatingJoinX2 = (Float) valueAnimator.getAnimatedValue();
+                    postInvalidateOnAnimation();
+                    // start any reveal animations if we've passed them
+                    for (PendingRevealAnimator pendingReveal : revealAnimations) {
+                        pendingReveal.startIfNecessary(retreatingJoinX2);
                     }
                 });
             }
@@ -789,13 +774,10 @@ public class Indicator extends View implements ViewPager.OnPageChangeListener,
             this.dot = dot;
             setDuration(animHalfDuration);
             setInterpolator(interpolator);
-            addUpdateListener(new AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                    // todo avoid autoboxing
-                    setDotRevealFraction(PendingRevealAnimator.this.dot,
-                            (Float) valueAnimator.getAnimatedValue());
-                }
+            addUpdateListener(valueAnimator -> {
+                // todo avoid autoboxing
+                setDotRevealFraction(PendingRevealAnimator.this.dot,
+                        (Float) valueAnimator.getAnimatedValue());
             });
             addListener(new AnimatorListenerAdapter() {
                 @Override

@@ -26,11 +26,15 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
+import android.support.annotation.StringRes;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.widget.RemoteViews;
 import android.widget.Toast;
 
 import com.amaze.filemanager.R;
@@ -51,6 +55,7 @@ import com.amaze.filemanager.utils.OpenMode;
 import com.amaze.filemanager.utils.ProgressHandler;
 import com.amaze.filemanager.utils.RootUtils;
 import com.amaze.filemanager.utils.ServiceWatcherUtil;
+import com.amaze.filemanager.utils.application.AppConfig;
 import com.amaze.filemanager.utils.files.CryptUtil;
 import com.amaze.filemanager.utils.files.FileUtils;
 import com.amaze.filemanager.utils.files.GenericCopyUtil;
@@ -60,7 +65,7 @@ import java.util.ArrayList;
 
 public class CopyService extends AbstractProgressiveService {
 
-    public static final String TAG_IS_ROOT_EXPLORER = "is root";
+    public static final String TAG_IS_ROOT_EXPLORER = "is_root";
     public static final String TAG_COPY_TARGET = "COPY_DIRECTORY";
     public static final String TAG_COPY_SOURCES = "FILE_PATHS";
     public static final String TAG_COPY_OPEN_MODE = "MODE"; // target open mode
@@ -77,10 +82,12 @@ public class CopyService extends AbstractProgressiveService {
     private final IBinder mBinder = new ObtainableServiceBinder<>(this);
     private ServiceWatcherUtil watcherUtil;
     private ProgressHandler progressHandler = new ProgressHandler();
-    private volatile float progressPercent = 0f;
     private ProgressListener progressListener;
     // list of data packages, to initiate chart in process viewer fragment
     private ArrayList<DatapointParcelable> dataPackages = new ArrayList<>();
+    private int accentColor;
+    private SharedPreferences sharedPreferences;
+    private RemoteViews customSmallContentViews, customBigContentViews;
 
     private boolean isRootExplorer;
     private long totalSize = 0L;
@@ -105,6 +112,10 @@ public class CopyService extends AbstractProgressiveService {
         String targetPath = intent.getStringExtra(TAG_COPY_TARGET);
         int mode = intent.getIntExtra(TAG_COPY_OPEN_MODE, OpenMode.UNKNOWN.ordinal());
         final boolean move = intent.getBooleanExtra(TAG_COPY_MOVE, false);
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(c);
+        accentColor = ((AppConfig) getApplication()).getUtilsProvider()
+                .getColorPreference()
+                .getCurrentUserColorPreferences(this, sharedPreferences).accent;
 
         mNotifyManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         b.putInt(TAG_COPY_START_ID, startId);
@@ -115,14 +126,31 @@ public class CopyService extends AbstractProgressiveService {
         notificationIntent.putExtra(MainActivity.KEY_INTENT_PROCESS_VIEWER, true);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
 
+        customSmallContentViews = new RemoteViews(getPackageName(), R.layout.notification_service_small);
+        customBigContentViews = new RemoteViews(getPackageName(), R.layout.notification_service_big);
+
+        Intent stopIntent = new Intent(TAG_BROADCAST_COPY_CANCEL);
+        PendingIntent stopPendingIntent = PendingIntent.getBroadcast(c, 1234, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        NotificationCompat.Action action = new NotificationCompat.Action(R.drawable.ic_content_copy_white_36dp,
+               getString(R.string.stop_ftp), stopPendingIntent);
+
         mBuilder = new NotificationCompat.Builder(c, NotificationConstants.CHANNEL_NORMAL_ID)
                 .setContentIntent(pendingIntent)
-                .setContentTitle(getResources().getString(R.string.copying))
-                .setSmallIcon(R.drawable.ic_content_copy_white_36dp);
+                .setSmallIcon(R.drawable.ic_content_copy_white_36dp)
+                .setCustomContentView(customSmallContentViews)
+                .setCustomBigContentView(customBigContentViews)
+                .setCustomHeadsUpContentView(customSmallContentViews)
+                .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
+                .addAction(action)
+                .setOngoing(true)
+                .setColor(accentColor);
+
+        // set default notification views text
 
         NotificationConstants.setMetadata(c, mBuilder, NotificationConstants.TYPE_NORMAL);
 
         startForeground(NotificationConstants.COPY_ID, mBuilder.build());
+        initNotificationViews();
 
         b.putBoolean(TAG_COPY_MOVE, move);
         b.putString(TAG_COPY_TARGET, targetPath);
@@ -154,15 +182,20 @@ public class CopyService extends AbstractProgressiveService {
     }
 
     @Override
-    protected float getPercentProgress() {
-        return progressPercent;
+    protected RemoteViews getNotificationCustomViewSmall() {
+        return customSmallContentViews;
     }
 
     @Override
-    protected void setPercentProgress(float progress) {
-        progressPercent = progress;
+    protected RemoteViews getNotificationCustomViewBig() {
+        return customBigContentViews;
     }
 
+    @Override
+    @StringRes
+    protected int getTitle(boolean move) {
+        return move ? R.string.moving : R.string.copying;
+    }
     public ProgressListener getProgressListener() {
         return progressListener;
     }
@@ -210,9 +243,8 @@ public class CopyService extends AbstractProgressiveService {
             progressHandler.setSourceSize(totalSourceFiles);
             progressHandler.setTotalSize(totalSize);
 
-            progressHandler.setProgressListener((fileName, sourceFiles1, sourceProgress1, totalSize1, writtenSize, speed) -> {
-                publishResults(fileName, sourceFiles1, sourceProgress1, totalSize1, writtenSize, speed, false, move);
-            });
+            progressHandler.setProgressListener((speed) ->
+                publishResults(speed, false, move));
 
             watcherUtil = new ServiceWatcherUtil(progressHandler);
 
@@ -232,7 +264,7 @@ public class CopyService extends AbstractProgressiveService {
                         findAndReplaceEncryptedEntry(sourceFile);
                     } catch (Exception e) {
                         // unable to modify encrypted entry in database
-                        Toast.makeText(c, getResources().getString(R.string.encryption_fail_copy), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(c, getString(R.string.encryption_fail_copy), Toast.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -246,7 +278,7 @@ public class CopyService extends AbstractProgressiveService {
             //  publishResults(b, "", totalSourceFiles, totalSourceFiles, totalSize, totalSize, 0, true, move);
             // stopping watcher if not yet finished
             watcherUtil.stopWatch();
-            generateNotification(copy.failedFOps, move);
+            finalizeNotification(copy.failedFOps, move);
 
             Intent intent = new Intent(MainActivity.KEY_INTENT_LOAD_LIST);
             intent.putExtra(MainActivity.KEY_INTENT_LOAD_LIST_FILE, targetPath);
@@ -311,10 +343,7 @@ public class CopyService extends AbstractProgressiveService {
             /**
              * Method iterate through files to be copied
              *
-             * @param sourceFiles
-             * @param targetPath
-             * @param move
-             * @param mode        target file open mode (current path's open mode)
+             * @param mode target file open mode (current path's open mode)
              */
             public void execute(final ArrayList<HybridFileParcelable> sourceFiles, final String targetPath,
                                 final boolean move, OpenMode mode) {
@@ -344,10 +373,10 @@ public class CopyService extends AbstractProgressiveService {
 
                             if (!progressHandler.getCancelled()) {
 
-                                if (!f1.isSmb()
-                                        && (f1.getMode() == OpenMode.ROOT || mode == OpenMode.ROOT)
+                                if ((f1.getMode() == OpenMode.ROOT || mode == OpenMode.ROOT)
                                         && isRootExplorer) {
                                     // either source or target are in root
+                                    Log.d(getClass().getSimpleName(), "either source or target are in root");
                                     progressHandler.setSourceFilesProcessed(++sourceProgress);
                                     copyRoot(f1, hFile, move);
                                     continue;
@@ -371,7 +400,6 @@ public class CopyService extends AbstractProgressiveService {
                 } else if (isRootExplorer) {
                     for (int i = 0; i < sourceFiles.size(); i++) {
                         if (!progressHandler.getCancelled()) {
-
                             HybridFile hFile = new HybridFile(mode, targetPath, sourceFiles.get(i).getName(),
                                     sourceFiles.get(i).isDirectory());
                             progressHandler.setSourceFilesProcessed(++sourceProgress);
@@ -383,8 +411,6 @@ public class CopyService extends AbstractProgressiveService {
                             }*/
                         }
                     }
-
-
                 } else {
                     for (HybridFileParcelable f : sourceFiles) failedFOps.add(f);
                     return;
@@ -398,7 +424,7 @@ public class CopyService extends AbstractProgressiveService {
                         if (!failedFOps.contains(a))
                             toDelete.add(a);
                     }
-                    new DeleteTask(getContentResolver(), c).execute((toDelete));
+                    new DeleteTask(c).execute((toDelete));
                 }
             }
 
@@ -409,17 +435,17 @@ public class CopyService extends AbstractProgressiveService {
                     else if (move) RootUtils.move(sourceFile.getPath(), targetFile.getPath());
                     ServiceWatcherUtil.position += sourceFile.getSize();
                 } catch (ShellNotRunningException e) {
-                    failedFOps.add(sourceFile);
                     e.printStackTrace();
+                    failedFOps.add(sourceFile);
                 }
-                FileUtils.scanFile(targetFile.getPath(), c);
+                FileUtils.scanFile(targetFile.getFile(), c);
             }
 
             private void copyFiles(final HybridFileParcelable sourceFile, final HybridFile targetFile,
                                    final ProgressHandler progressHandler) throws IOException {
 
+                if (progressHandler.getCancelled()) return;
                 if (sourceFile.isDirectory()) {
-                    if (progressHandler.getCancelled()) return;
 
                     if (!targetFile.exists()) targetFile.mkdir(c);
 
@@ -444,13 +470,12 @@ public class CopyService extends AbstractProgressiveService {
                         }
                     });
                 } else {
-                    if (progressHandler.getCancelled()) return;
                     if (!Operations.isFileNameValid(sourceFile.getName())) {
                         failedFOps.add(sourceFile);
                         return;
                     }
 
-                    GenericCopyUtil copyUtil = new GenericCopyUtil(c);
+                    GenericCopyUtil copyUtil = new GenericCopyUtil(c, progressHandler);
 
                     progressHandler.setFileName(sourceFile.getName());
                     if (isCreateCopyAutoNaming) {

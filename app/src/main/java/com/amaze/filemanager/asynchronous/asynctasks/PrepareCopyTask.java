@@ -24,7 +24,6 @@ import com.amaze.filemanager.utils.OnFileFound;
 import com.amaze.filemanager.utils.OpenMode;
 import com.amaze.filemanager.utils.ServiceWatcherUtil;
 import com.amaze.filemanager.utils.Utils;
-import com.amaze.filemanager.utils.color.ColorUsage;
 import com.amaze.filemanager.utils.files.FileUtils;
 
 import java.io.File;
@@ -60,6 +59,7 @@ public class PrepareCopyTask extends AsyncTask<ArrayList<HybridFileParcelable>, 
     private boolean rootMode = false;
     private OpenMode openMode = OpenMode.FILE;
     private DO_FOR_ALL_ELEMENTS dialogState = null;
+    private boolean isRenameMoveSupport = false;
 
     //causes folder containing filesToCopy to be deleted
     private ArrayList<File> deleteCopiedFolder = null;
@@ -100,15 +100,24 @@ public class PrepareCopyTask extends AsyncTask<ArrayList<HybridFileParcelable>, 
                 || openMode == OpenMode.BOX
                 || openMode == OpenMode.GDRIVE
                 || openMode == OpenMode.ONEDRIVE
+                || openMode == OpenMode.ROOT
                 ) {
             // no helper method for OTG to determine storage space
             return null;
         }
 
+        HybridFile destination = new HybridFile(openMode, path);
+        destination.generateMode(context);
+
+        if (move && destination.getMode() == openMode
+                && MoveFiles.getOperationSupportedFileSystem().contains(openMode)) {
+            // move/rename supported filesystems, skip checking for space
+            isRenameMoveSupport = true;
+        }
+
         totalBytes = FileUtils.getTotalBytes(filesToCopy, context);
 
-        HybridFile destination = new HybridFile(openMode, path);
-        if (destination.getUsableSpace() < totalBytes) {
+        if (destination.getUsableSpace() < totalBytes && !isRenameMoveSupport) {
             publishProgress(context.getResources().getString(R.string.in_safe));
             return null;
         }
@@ -120,13 +129,10 @@ public class PrepareCopyTask extends AsyncTask<ArrayList<HybridFileParcelable>, 
 
     private ArrayList<HybridFileParcelable> checkConflicts(final ArrayList<HybridFileParcelable> filesToCopy, HybridFile destination) {
         final ArrayList<HybridFileParcelable> conflictingFiles = new ArrayList<>();
-        destination.forEachChildrenFile(context, rootMode, new OnFileFound() {
-            @Override
-            public void onFileFound(HybridFileParcelable file) {
-                for (HybridFileParcelable j : filesToCopy) {
-                    if (file.getName().equals((j).getName())) {
-                        conflictingFiles.add(j);
-                    }
+        destination.forEachChildrenFile(context, rootMode, file -> {
+            for (HybridFileParcelable j : filesToCopy) {
+                if (file.getName().equals((j).getName())) {
+                    conflictingFiles.add(j);
                 }
             }
         });
@@ -140,13 +146,16 @@ public class PrepareCopyTask extends AsyncTask<ArrayList<HybridFileParcelable>, 
                 || openMode == OpenMode.GDRIVE
                 || openMode == OpenMode.DROPBOX
                 || openMode == OpenMode.BOX
-                || openMode == OpenMode.ONEDRIVE) {
+                || openMode == OpenMode.ONEDRIVE
+                || openMode == OpenMode.ROOT
+                ) {
 
             startService(filesToCopy, path, openMode);
         } else {
 
             if (copyFolder == null) {
                 // not starting service as there's no sufficient space
+                dialog.dismiss();
                 return;
             }
 
@@ -162,23 +171,25 @@ public class PrepareCopyTask extends AsyncTask<ArrayList<HybridFileParcelable>, 
         intent.putExtra(CopyService.TAG_COPY_TARGET, target);
         intent.putExtra(CopyService.TAG_COPY_OPEN_MODE, openmode.ordinal());
         intent.putExtra(CopyService.TAG_COPY_MOVE, move);
+        intent.putExtra(CopyService.TAG_IS_ROOT_EXPLORER, rootMode);
         ServiceWatcherUtil.runService(context, intent);
     }
 
     private void showDialog(final String path, final ArrayList<HybridFileParcelable> filesToCopy,
                             final ArrayList<HybridFileParcelable> conflictingFiles) {
-        int accentColor = mainActivity.getColorPreference().getColor(ColorUsage.ACCENT);
+        int accentColor = mainActivity.getAccent();
         final MaterialDialog.Builder dialogBuilder = new MaterialDialog.Builder(context);
         LayoutInflater layoutInflater =
                 (LayoutInflater) mainActivity.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View view = layoutInflater.inflate(R.layout.copy_dialog, null);
         dialogBuilder.customView(view, true);
+
         // textView
-        TextView textView = (TextView) view.findViewById(R.id.textView);
-        textView.setText(context.getResources().getString(R.string.fileexist) + "\n" + conflictingFiles.get(counter).getName());
+        TextView textView = view.findViewById(R.id.fileNameText);
+        textView.setText(conflictingFiles.get(counter).getName());
 
         // checkBox
-        final CheckBox checkBox = (CheckBox) view.findViewById(R.id.checkBox);
+        final CheckBox checkBox = view.findViewById(R.id.checkBox);
         Utils.setTint(context, checkBox, accentColor);
         dialogBuilder.theme(mainActivity.getAppTheme().getMaterialDialogTheme());
         dialogBuilder.title(context.getResources().getString(R.string.paste));

@@ -1,6 +1,7 @@
 package com.amaze.filemanager.utils.cloud;
 
 import com.amaze.filemanager.utils.SmbStreamer.StreamSource;
+import com.amaze.filemanager.utils.streams.RandomAccessStream;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,21 +10,17 @@ import java.io.InputStream;
  * Created by Vishal on 30-04-2017.
  */
 
-public class CloudStreamSource extends StreamSource {
-    protected String mime;
+public class CloudStreamSource extends RandomAccessStream {
     protected long fp;
-    protected long len;
     protected String name;
-    protected int bufferSize;
     private InputStream inputStream;
 
     public CloudStreamSource(String fileName, long length, InputStream inputStream) {
+        super(length);
 
         fp = 0;
-        len = length;
         this.name = fileName;
         this.inputStream = inputStream;
-        bufferSize = 1024*60;
     }
 
     /**
@@ -50,8 +47,6 @@ public class CloudStreamSource extends StreamSource {
      * Setting buffer size by properties didn't work for me so I created this constructor.
      * In the libs folder there is a library modified by me. If you want to use a stock one, you
      * have to set somehow the buffer size to be equal with http server's buffer size which is 8192.
-     *
-     * @throws IOException
      */
     public void open() throws IOException {
         try {
@@ -61,19 +56,22 @@ public class CloudStreamSource extends StreamSource {
             throw new IOException(e);
         }
     }
-    public int read(byte[] buff) throws IOException{
-        return read(buff, 0, buff.length);
+
+    @Override
+    public int read() throws IOException {
+        int read = inputStream.read();
+        if(read != -1) fp++;
+        return read;
     }
+
+    @Override
     public int read(byte[] bytes, int start, int offs) throws IOException {
         int read =  inputStream.read(bytes, start, offs);
         fp += read;
         return read;
     }
-    public long moveTo(long position) throws IOException {
-        fp = position;
-        return fp;
-    }
 
+    @Override
     public void close() {
         try {
             inputStream.close();
@@ -81,24 +79,22 @@ public class CloudStreamSource extends StreamSource {
             e.printStackTrace();
         }
     }
-    public String getMimeType(){
-        return mime;
-    }
-    public long length(){
-        return len;
-    }
+
     public String getName(){
         return name;
     }
-    public long available(){
-        return len - fp;
+
+    @Override
+    public void moveTo(long position) {
+        if(position < 0 || length() < position) {
+            throw new IllegalArgumentException("Position out of the bounds of the file!");
+        }
+
+        fp = position;
     }
 
-    public void reset(){
-        fp = 0;
-    }
-
-    public int getBufferSize(){
-        return bufferSize;
+    @Override
+    protected long getCurrentPosition() {
+        return fp;
     }
 }

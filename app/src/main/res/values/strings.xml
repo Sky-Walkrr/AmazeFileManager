@@ -25,7 +25,7 @@
     <string name="drawer_open">Open navigation drawer</string>
     <string name="drawer_close">Close navigation drawer</string>
     <string name="icon">icon</string>
-    <string name="storage">Storage</string>
+    <string name="internalstorage">Internal Storage</string>
     <string name="apps">App Manager</string>
     <string name="ftp">FTP Server</string>
     <string name="setting">Settings</string>
@@ -81,6 +81,7 @@
     <string name="questionset">Do you want to set current path as home for this tab?</string>
     <string name="directorysort">Directory Sort Mode</string>
     <string name="sortby">Sort By</string>
+    <string name="sort_only_this">Only this folder</string>
     <string name="theme">Theme</string>
     <string name="random">Random Skin</string>
     <string name="random_summary">Sets random primary color at startup</string>
@@ -151,7 +152,7 @@
     <string name="thumb">Show Thumbnails</string>
     <string name="hidden">Show Hidden Files and Folders</string>
     <string name="lastModifiedSummary">Show the date and time when the file was modified last time</string>
-    <string name="lastModifiedPref">Show Last Modified</string>
+    <string name="lastModifiedPref">Show Last Modified Date and Time</string>
     <string name="sizePrefSummary">Show size of files and number of items in folders</string>
     <string name="sizePref">Show Sizes</string>
     <string name="miscellaneous">Miscellaneous</string>
@@ -272,7 +273,7 @@
     <string name="grant">Grant</string>
     <string name="grantper">Grant permission</string>
     <string name="grantfailed">Permission not granted</string>
-    <string name="granttext">App needs storage permission to continue. Canceling this dialog will exit the app.</string>
+    <string name="grant_storage_permission">App needs storage permission to continue. Canceling this dialog will exit the app.</string>
     <string name="operationunsuccesful">Operation Unsuccessful</string>
     <string name="creatingfile">Creating File</string>
     <string name="creatingfolder">Creating Folder</string>
@@ -452,7 +453,7 @@
     <string name="permission_group">Group</string>
     <string name="permission_other">Other</string>
     <string name="clipboard_path_copy">Path copied to clipboard</string>
-    <string name="service_timer">Time Elapsed</string>
+    <string name="service_timer">Time elapsed</string>
     <string name="please_wait">Please Wait</string>
 
     <string name="cloud_connection">Cloud Connection</string>
@@ -610,11 +611,15 @@
     <string name="green">Green</string>
     <string name="password_no_match">Password doesn\'t match</string>
     <string name="deselect_all">Deselect All</string>
+    <string name="filename">Filename</string>
+    <string name="compress_file_suggest_zip_extension">It\'s recommended to use \".zip\" as the file extension.</string>
     <string name="about_amaze">Material design file manager for Android</string>
     <string name="license">License</string>
     <string name="libraries">Libraries</string>
     <string name="password_repeat">Repeat password</string>
+    <string name="create_file_suggest_txt_extension">It\'s recommended to use \".txt\" as the file extension.</string>
     <string name="ssh_select_pem">Select private key for authentication</string>
+    <string name="ssh_key_invalid_passphrase">Invalid key passphrase.</string>
     <string name="encryption_fail_copy">Failed to update encryption entry in database</string>
     <string name="extracted">Extracted</string>
     <string name="compressed">Compressed</string>
@@ -629,5 +634,20 @@
     <string name="rename_as_jpg_batch">批量重命名为JPG格式</string>
     <string name="change_md5">修改MD5</string>
     <string name="change_md5_batch">批量修改MD5</string>
+    <string name="encrypt_file_save_as">Save Encrypted File As&#8230;</string>
+    <string name="encrypt_folder_save_as">Save Encrypted Folder As&#8230;</string>
+    <string name="encrypt_file_must_end_with_aze">Encrypted files must use \".aze\" as the file extension.</string>
+    <string name="cannot_overwrite">Cannot overwrite file.</string>
+    <string name="saved_single_file">File saved as \'%s\'.</string>
+    <string name="saved_multi_files">%d files saved.</string>
+    <string name="create_hidden_file_warn">The created file will be hidden in the file list.</string>
+    <string name="grant_apkinstall_permission">App needs permission to install apps continue.</string>
+    <string name="time_remaining">Time remaining</string>
+    <string name="transfer_rate">Transfer rate</string>
+    <string name="unknown">unknown</string>
+    <string name="multiple_invalid_archive_entries">Some files in the archive cannot be extracted; archive may be damaged or came from malicious source.</string>
+    <string name="saf_otg_explanation">You\'ll now go to Android\'s filesystem for security reasons. Please select the USB device from the list on the left.</string>
+    <string name="donation_thanks">Thank you for the donation, this keeps us motivated! (:</string>
+    <string name="enableMarqueeFilename">Enable marquee effect for file names</string>
 </resources>
 

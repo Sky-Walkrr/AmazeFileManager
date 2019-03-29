@@ -23,7 +23,6 @@
   <string name="drawer_open">Avaa navigointivalikko</string>
   <string name="drawer_close">Sulje navigointivalikko</string>
     <string name="icon">Ikoni</string>
-    <string name="storage">Tallennustila</string>
     <string name="apps">Sovellusten hallinta</string>
   <string name="ftp">FTP-palvelin</string>
     <string name="setting">Asetukset</string>
@@ -257,7 +256,7 @@
   <string name="grant">Myönnä</string>
   <string name="grantper">Anna lupa</string>
   <string name="grantfailed">Oikeuksia ei myönnetty</string>
-  <string name="granttext">App needs storage permission to continue. Canceling this dialog will exit the app.</string>
+  <string name="grant_storage_permission">App needs storage permission to continue. Canceling this dialog will exit the app.</string>
   <string name="operationunsuccesful">Toiminto ei onnistunut</string>
   <string name="creatingfile">Luodaan tiedosto</string>
   <string name="creatingfolder">Luodaan kansio</string>

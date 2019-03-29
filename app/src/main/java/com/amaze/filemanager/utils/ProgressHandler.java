@@ -13,29 +13,40 @@ import com.amaze.filemanager.fragments.ProcessViewerFragment;
  */
 public class ProgressHandler {
 
-    // total number of bytes to be processed
-    long totalSize = 0L;
+    /**
+     * total number of bytes to be processed
+     * Volatile because non volatile long r/w are not atomic (see Java Language Specification 17.7)
+     */
+    private volatile long totalSize = 0L;
 
-    // total bytes written in process so far
-    long writtenSize = 0L;
+    /**
+     * total bytes written in process so far
+     * Volatile because non volatile long r/w are not atomic (see Java Language Specification 17.7)
+     */
+    private volatile long writtenSize = 0L;
+    /**
+     * total number of source files to be processed
+     */
+    private volatile int sourceFiles = 0;
 
-    // total number of source files to be processed
-    int sourceFiles = 0;
+    /**
+     * number of source files processed so far
+     */
+    private volatile int sourceFilesProcessed = 0;
+    /**
+     * file name currently being processed
+     */
+    private volatile String fileName;
 
-    // number of source files processed so far
-    int sourceFilesProcessed = 0;
+    /**
+     * boolean manages the lifecycle of service and whether it should be canceled
+     */
+    private volatile boolean isCancelled = false;
 
-    // file name currently being processed
-    String fileName;
-
-    // current processing speed (bytes processed in 1000ms time)
-    int speedRaw = 0;
-
-    // boolean manages the lifecycle of service and whether it should be canceled
-    private boolean isCancelled = false;
-
-    // callback interface to interact with process viewer fragment and notification
-    ProgressListener progressListener;
+    /**
+     * callback interface to interact with process viewer fragment and notification
+     */
+    private volatile ProgressListener progressListener;
 
     /**
      * Constructor to start an instance
@@ -51,8 +62,6 @@ public class ProgressHandler {
      */
     public ProgressHandler() {
 
-        this.sourceFiles = 0;
-        this.totalSize = 0;
     }
 
     /**
@@ -61,53 +70,64 @@ public class ProgressHandler {
      * @param newPosition the position of byte for file being processed
      */
     public synchronized void addWrittenLength(long newPosition) {
-
-        this.speedRaw = (int) (newPosition - writtenSize);
+        long speedRaw = (newPosition - writtenSize);
         this.writtenSize = newPosition;
 
-        progressListener.onProgressed(fileName, sourceFiles, sourceFilesProcessed,
-                totalSize, writtenSize, speedRaw);
+        progressListener.onProgressed(speedRaw);
     }
 
-    public synchronized void setFileName(String fileName) {
+    public void setFileName(String fileName) {
         this.fileName = fileName;
     }
 
-    public synchronized String getFileName() {
-        return this.fileName;
+    public String getFileName() {
+        return fileName;
     }
 
-    public synchronized void setSourceFilesProcessed(int sourceFilesProcessed) {
+    public void setSourceFilesProcessed(int sourceFilesProcessed) {
         this.sourceFilesProcessed = sourceFilesProcessed;
+    }
+
+    public int getSourceFilesProcessed() {
+        return sourceFilesProcessed;
     }
 
     public void setSourceSize(int sourceFiles) {
         this.sourceFiles = sourceFiles;
     }
 
+    public int getSourceSize() {
+        return sourceFiles;
+    }
+
     // dynamically setting total size, useful in case files are compressed
-    public synchronized void setTotalSize(long totalSize) {
+    public void setTotalSize(long totalSize) {
         this.totalSize = totalSize;
     }
 
-    public synchronized long getTotalSize() {
+    public long getTotalSize() {
         return this.totalSize;
     }
 
-    public synchronized void setCancelled(boolean isCancelled) {
+    public void setCancelled(boolean isCancelled) {
         this.isCancelled = isCancelled;
     }
 
-    public synchronized boolean getCancelled() {
-        return this.isCancelled;
+    public boolean getCancelled() {
+        return isCancelled;
     }
 
-    public synchronized long getWrittenSize() {
+    public long getWrittenSize() {
         return writtenSize;
     }
 
     public void setProgressListener(ProgressListener progressListener) {
         this.progressListener = progressListener;
+    }
+
+    public synchronized float getPercentProgress() {
+        if(totalSize == 0) return 0f;//Sometimes the total size is 0, because of metadata not being measured
+        return ((float) writtenSize / totalSize) * 100;
     }
 
     /**
@@ -117,14 +137,8 @@ public class ProgressHandler {
      */
     public interface ProgressListener {
         /**
-         * @param fileName File name currently being processed (can be recursive, irrespective of selections)
-         * @param sourceFiles how many total number of files did the user selected
-         * @param sourceProgress which file is being processed from total number of files
-         * @param totalSize total size of source files
-         * @param writtenSize where are we at from total number of bytes
          * @param speed raw write speed in bytes
          */
-        void onProgressed(String fileName, int sourceFiles, int sourceProgress, long totalSize,
-                          long writtenSize, int speed);
+        void onProgressed(long speed);
     }
 }

@@ -26,7 +26,6 @@
     <string name="drawer_open">ஊடுருவல் பட்டியை திற</string>
     <string name="drawer_close">ஊடுருவல் பட்டியை மூடு</string>
     <string name="icon">படவுரு</string>
-    <string name="storage">நினைவகம்</string>
     <string name="apps">நிரல் மேலாளர்</string>
     <string name="ftp">எப்டீபி சேவையகம்</string>
     <string name="setting">அமைப்புகள்</string>
@@ -263,7 +262,7 @@
     <string name="grant">வழங்கு</string>
     <string name="grantper">அனுமதி வழங்கு</string>
     <string name="grantfailed">அனுமதி வழங்கப்படவில்லை</string>
-    <string name="granttext">மேலும் தொடர நிரலுக்கு நினைவாக அனுமதி தேவை. இந்த உரையை ரத்துச்செய்தால் நிரலில் இருந்து வெளியேற்றப்படுவீர்கள்</string>
+    <string name="grant_storage_permission">மேலும் தொடர நிரலுக்கு நினைவாக அனுமதி தேவை. இந்த உரையை ரத்துச்செய்தால் நிரலில் இருந்து வெளியேற்றப்படுவீர்கள்</string>
     <string name="operationunsuccesful">செயல்முறை தோல்வி</string>
     <string name="creatingfile">கோப்பை உருவாக்குகிறது</string>
     <string name="creatingfolder">கோப்புறையை உருவாக்குகிறது</string>

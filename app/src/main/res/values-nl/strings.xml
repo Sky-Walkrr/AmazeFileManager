@@ -23,8 +23,7 @@
   <string name="drawer_open">Navigatielade openen</string>
   <string name="drawer_close">Navigatielade sluiten</string>
   <string name="icon">pictogram</string>
-  <string name="storage">Opslag</string>
-  <string name="apps">Applicatiebeheerder</string>
+    <string name="apps">Applicatiebeheerder</string>
   <string name="ftp">FTP–Server</string>
   <string name="setting">Instellingen</string>
   <string name="select">Item selecteren</string>
@@ -257,7 +256,7 @@
   <string name="grant">Toestaan</string>
   <string name="grantper">Toestemming geven</string>
   <string name="grantfailed">Geen toestemming verleend</string>
-  <string name="granttext">De app heeft opslag-rechten nodig om te functioneren. Als u op annuleren drukt, wordt de app afgesloten.</string>
+  <string name="grant_storage_permission">De app heeft opslag-rechten nodig om te functioneren. Als u op annuleren drukt, wordt de app afgesloten.</string>
   <string name="operationunsuccesful">Uitvoeren mislukt</string>
   <string name="creatingfile">Bestand aanmaken</string>
   <string name="creatingfolder">Map aanmaken</string>

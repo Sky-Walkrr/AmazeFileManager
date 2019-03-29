@@ -23,7 +23,6 @@
   <string name="drawer_open">Apri pannello di navigazione</string>
   <string name="drawer_close">Chiudi pannello di navigazione</string>
     <string name="icon">icona</string>
-    <string name="storage">Archiviazione</string>
     <string name="apps">Gestione app</string>
   <string name="ftp">Server FTP</string>
     <string name="setting">Impostazioni</string>
@@ -266,7 +265,7 @@ I cambiamenti saranno effettivi dopo il riavvio dell\'app
   <string name="grant">Concedi</string>
   <string name="grantper">Concedi autorizzazione</string>
   <string name="grantfailed">Autorizzazione non concessa</string>
-  <string name="granttext">L\'app richiede l\'autorizzazione di accedere all\'archiviazione per poter continuare. L\'annullamento di questa finestra di dialogo causerà l\'uscita dall\'app.</string>
+  <string name="grant_storage_permission">L\'app richiede l\'autorizzazione di accedere all\'archiviazione per poter continuare. L\'annullamento di questa finestra di dialogo causerà l\'uscita dall\'app.</string>
   <string name="operationunsuccesful">Operazione non riuscita</string>
   <string name="creatingfile">Creazione file in corso</string>
   <string name="creatingfolder">Creazione cartella in corso</string>

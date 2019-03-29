@@ -1,3 +1,24 @@
+/*
+ * DataUtils.java
+ *
+ * Copyright (C) 2016-2018 Arpit Khurana <arpitkh96@gmail.com>, Vishal Nehra <vishalmeham2@gmail.com>,
+ * Emmanuel Messulam<emmanuelbendavid@gmail.com>, Raymond Lai <airwave209gt at gmail.com> and Contributors.
+ *
+ * This file is part of Amaze File Manager.
+ *
+ * Amaze File Manager is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package com.amaze.filemanager.utils;
 
 import android.support.annotation.Nullable;
@@ -24,8 +45,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * Created by arpitkh996 on 20-01-2016.
- *
  * Singleton class to handle data for various services
  */
 
@@ -33,7 +52,7 @@ import java.util.List;
 public class DataUtils {
 
     public static final int DELETE = 0, COPY = 1, MOVE = 2, NEW_FOLDER = 3,
-            RENAME = 4, NEW_FILE = 5, EXTRACT = 6, COMPRESS = 7;
+            RENAME = 4, NEW_FILE = 5, EXTRACT = 6, COMPRESS = 7, SAVE_FILE = 8;
 
     private ConcurrentRadixTree<VoidValue> hiddenfiles = new ConcurrentRadixTree<>(new DefaultCharArrayNodeFactory());
 
@@ -54,13 +73,16 @@ public class DataUtils {
 
     private DataChangeListener dataChangeListener;
 
-    private static DataUtils sDataUtils;
+    private DataUtils(){
+
+    }
+
+    private static class DataUtilsHolder {
+        private static final DataUtils INSTANCE = new DataUtils();
+    }
 
     public static DataUtils getInstance() {
-        if (sDataUtils == null) {
-            sDataUtils = new DataUtils();
-        }
-        return sDataUtils;
+        return DataUtilsHolder.INSTANCE;
     }
 
     public int containsServer(String[] a) {
@@ -225,7 +247,7 @@ public class DataUtils {
             books.add(i);
         }
         if (refreshdrawer && dataChangeListener != null) {
-            AppConfig.runInBackground(() -> dataChangeListener.onBookAdded(i, true));
+            dataChangeListener.onBookAdded(i, true);
         }
     }
 
@@ -244,7 +266,7 @@ public class DataUtils {
             hiddenfiles.put(i, VoidValue.SINGLETON);
         }
         if (dataChangeListener != null) {
-            AppConfig.runInBackground(() -> dataChangeListener.onHiddenFileAdded(i));
+            dataChangeListener.onHiddenFileAdded(i);
         }
     }
 
@@ -255,7 +277,7 @@ public class DataUtils {
             hiddenfiles.remove(i);
         }
         if (dataChangeListener != null) {
-            AppConfig.runInBackground(() -> dataChangeListener.onHiddenFileRemoved(i));
+            dataChangeListener.onHiddenFileRemoved(i);
         }
     }
 
@@ -271,7 +293,7 @@ public class DataUtils {
     public void addHistoryFile(final String i) {
         history.push(i);
         if (dataChangeListener != null) {
-            AppConfig.runInBackground(() -> dataChangeListener.onHistoryAdded(i));
+            dataChangeListener.onHistoryAdded(i);
         }
     }
 
@@ -372,12 +394,7 @@ public class DataUtils {
     public void clearHistory() {
         history.clear();
         if (dataChangeListener != null) {
-            AppConfig.runInBackground(new Runnable() {
-                @Override
-                public void run() {
-                    dataChangeListener.onHistoryCleared();
-                }
-            });
+            AppConfig.runInBackground(() -> dataChangeListener.onHistoryCleared());
         }
     }
 
@@ -408,7 +425,7 @@ public class DataUtils {
 
     /**
      * Callbacks to do original changes in database (and ui if required)
-     * The callbacks are called in a background thread
+     * The callbacks are called in a main thread
      */
     public interface DataChangeListener {
         void onHiddenFileAdded(String path);

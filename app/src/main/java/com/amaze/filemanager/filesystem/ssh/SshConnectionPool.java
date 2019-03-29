@@ -23,6 +23,7 @@ package com.amaze.filemanager.filesystem.ssh;
 
 import android.net.Uri;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.amaze.filemanager.activities.MainActivity;
@@ -56,7 +57,7 @@ public class SshConnectionPool
 
     public static final int SSH_CONNECT_TIMEOUT = 30000;
 
-    private static final String TAG = "SshConnectionPool";
+    private static final String TAG = SshConnectionPool.class.getSimpleName();
 
     private static SshConnectionPool instance = null;
 
@@ -89,7 +90,7 @@ public class SshConnectionPool
      * @return {@link SSHClient} connection, already opened and authenticated
      * @throws IOException IOExceptions that occur during connection setup
      */
-    public SSHClient getConnection(@NonNull String url) throws IOException {
+    public SSHClient getConnection(@NonNull String url)  {
         url = SshClientUtils.extractBaseUriFrom(url);
 
         SSHClient client = connections.get(url);
@@ -103,6 +104,47 @@ public class SshConnectionPool
                 expire(client);
                 connections.remove(url);
                 client = create(url);
+                if(client != null)
+                    connections.put(url, client);
+            }
+        }
+        return client;
+    }
+
+    /**
+     * Obtain a {@link SSHClient} connection from the underlying connection pool.
+     *
+     * Beneath it will return the connection if it exists; otherwise it will create a new one and
+     * put it into the connection pool.
+     *
+     * Different from {@link #getConnection(String)} above, this accepts broken down parameters as
+     * convenience method during setting up SCP/SFTP connection.
+     *
+     * @param host host name/IP, required
+     * @param port SSH server port, required
+     * @param hostFingerprint expected host fingerprint, required
+     * @param username username, required
+     * @param password password, required if using password to authenticate
+     * @param keyPair {@link KeyPair}, required if using key-based authentication
+     * @return {@link SSHClient} connection
+     */
+    public SSHClient getConnection(@NonNull String host, int port, @NonNull String hostFingerprint,
+                                   @NonNull String username, @Nullable String password,
+                                   @Nullable KeyPair keyPair) {
+
+        String url = SshClientUtils.deriveSftpPathFrom(host, port, username, password, keyPair);
+
+        SSHClient client = connections.get(url);
+        if(client == null) {
+            client = create(host, port, hostFingerprint, username, password, keyPair);
+            if(client != null)
+                connections.put(url, client);
+        } else {
+            if(!validate(client)) {
+                Log.d(TAG, "Connection no longer usable. Reconnecting...");
+                expire(client);
+                connections.remove(url);
+                client = create(host, port, hostFingerprint, username, password, keyPair);
                 if(client != null)
                     connections.put(url, client);
             }
@@ -127,40 +169,43 @@ public class SshConnectionPool
         });
     }
 
-    private SSHClient create(@NonNull String url) throws IOException {
-        return create(Uri.parse(url));
-    }
-
     // Logic for creating SSH connection. Depends on password existence in given Uri password or
     // key-based authentication
-    private SSHClient create(@NonNull Uri uri) throws IOException {
-        String host = uri.getHost();
-        int port = uri.getPort();
-        //If the uri is fetched from the app's database storage, we assume it will never be empty
-        String[] userInfo = uri.getUserInfo().split(":");
-        String username = userInfo[0];
-        String password = userInfo.length > 1 ? userInfo[1] : null;
-
-        if(port < 0)
-            port = SSH_DEFAULT_PORT;
+    private SSHClient create(@NonNull String url) {
+        ConnectionInfo connInfo = new ConnectionInfo(url);
 
         UtilsHandler utilsHandler = AppConfig.getInstance().getUtilsHandler();
-        try {
-            String pem = utilsHandler.getSshAuthPrivateKey(uri.toString());
-            AtomicReference<KeyPair> keyPair = new AtomicReference<>(null);
-            if(pem != null && !"".equals(pem)) {
+        String pem = utilsHandler.getSshAuthPrivateKey(url);
+
+        AtomicReference<KeyPair> keyPair = new AtomicReference<>(null);
+        if(pem != null && !pem.isEmpty()) {
+            try {
                 CountDownLatch latch = new CountDownLatch(1);
                 new PemToKeyPairTask(pem, result -> {
-                    if(result.result != null){
-                        keyPair.set(result.result);
-                        latch.countDown();
-                    }
+                    keyPair.set(result);
+                    latch.countDown();
                 }).execute();
                 latch.await();
+            } catch(InterruptedException e) {
+                throw new RuntimeException(e);
             }
+        }
+
+        String hostKey = utilsHandler.getSshHostKey(url);
+        if(hostKey == null)
+            return null;
+
+        return create(connInfo.host, connInfo.port, hostKey, connInfo.username, connInfo.password,
+                keyPair.get());
+    }
+
+    private SSHClient create(@NonNull String host, int port, @NonNull String hostKey,
+                             @NonNull String username, @Nullable String password,
+                             @Nullable KeyPair keyPair) {
+
+        try {
             AsyncTaskResult<SSHClient> taskResult = new SshAuthenticationTask(host, port,
-                    utilsHandler.getSshHostKey(uri.toString()),
-                    username, password, keyPair.get()).execute().get();
+                    hostKey, username, password, keyPair).execute().get();
 
             SSHClient client = taskResult.result;
             return client;
@@ -179,5 +224,41 @@ public class SshConnectionPool
 
     private void expire(@NonNull SSHClient client) {
         SshClientUtils.tryDisconnect(client);
+    }
+
+    /**
+     * Container object for SSH URI, encapsulating logic for splitting information from given URI.
+     *
+     * <code>Uri.parse()</code> only parse URI that is compliant to RFC2396, but we have to deal
+     * with URI that is not compliant, since usernames and/or strong passwords usually have special
+     * characters included, like <code>ssh://user@example.com:P@##w0rd@127.0.0.1:22</code>.
+     *
+     * A design decision to keep database schema slim, by the way... -TranceLove
+     */
+    static final class ConnectionInfo {
+
+        final String host;
+        final int port;
+        final String username;
+        final String password;
+
+        //FIXME: Crude assumption
+        ConnectionInfo(@NonNull String url){
+            if(!url.startsWith(SSH_URI_PREFIX))
+                throw new IllegalArgumentException("Argument is not a SSH URI: " + url);
+
+            this.host = url.substring(url.lastIndexOf('@')+1, url.lastIndexOf(':'));
+            int port = Integer.parseInt(url.substring(url.lastIndexOf(':')+1));
+            //If the uri is fetched from the app's database storage, we assume it will never be empty
+            String authString = url.substring(SSH_URI_PREFIX.length(), url.lastIndexOf('@'));
+            String[] userInfo = authString.split(":");
+            this.username = userInfo[0];
+            this.password = userInfo.length > 1 ? userInfo[1] : null;
+
+            if(port < 0)
+                port = SSH_DEFAULT_PORT;
+
+            this.port = port;
+        }
     }
 }

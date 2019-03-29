@@ -2,11 +2,12 @@ package com.amaze.filemanager.adapters;
 
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.Color;
+import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,15 +26,17 @@ import com.amaze.filemanager.filesystem.HybridFileParcelable;
 import com.amaze.filemanager.filesystem.compressed.CompressedHelper;
 import com.amaze.filemanager.filesystem.compressed.showcontents.Decompressor;
 import com.amaze.filemanager.fragments.CompressedExplorerFragment;
-import com.amaze.filemanager.ui.icons.Icons;
+import com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants;
 import com.amaze.filemanager.ui.views.CircleGradientDrawable;
+import com.amaze.filemanager.utils.AnimUtils;
 import com.amaze.filemanager.utils.OpenMode;
 import com.amaze.filemanager.utils.Utils;
-import com.amaze.filemanager.utils.color.ColorUtils;
+import com.amaze.filemanager.ui.colors.ColorUtils;
 import com.amaze.filemanager.utils.provider.UtilitiesProvider;
 import com.amaze.filemanager.utils.theme.AppTheme;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by Arpit on 25-01-2015 edited by Emmanuel Messulam<emmanuelbendavid@gmail.com>
@@ -47,17 +50,18 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
     private Context context;
     private UtilitiesProvider utilsProvider;
     private Drawable folder;
-    private ArrayList<CompressedObjectParcelable> items;
+    private List<CompressedObjectParcelable> items;
     private CompressedExplorerFragment compressedExplorerFragment;
     private Decompressor decompressor;
     private LayoutInflater mInflater;
     private boolean[] itemsChecked;
     private int offset = 0;
+    private SharedPreferences sharedPrefs;
 
     public CompressedExplorerAdapter(Context c, UtilitiesProvider utilsProvider,
-                                     ArrayList<CompressedObjectParcelable> items,
+                                     List<CompressedObjectParcelable> items,
                                      CompressedExplorerFragment compressedExplorerFragment,
-                                     Decompressor decompressor) {
+                                     Decompressor decompressor, SharedPreferences sharedPrefs) {
         setHasStableIds(true);
 
         this.utilsProvider = utilsProvider;
@@ -71,6 +75,7 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
         folder = c.getResources().getDrawable(R.drawable.ic_grid_folder_new);
         this.compressedExplorerFragment = compressedExplorerFragment;
         mInflater = (LayoutInflater) c.getSystemService(Activity.LAYOUT_INFLATER_SERVICE);
+        this.sharedPrefs = sharedPrefs;
     }
 
     public void toggleChecked(boolean check) {
@@ -142,7 +147,7 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
         this.offset = (30 + this.offset);
     }
 
-    public void generateZip(ArrayList<CompressedObjectParcelable> arrayList) {
+    public void generateZip(List<CompressedObjectParcelable> arrayList) {
         offset = 0;
         stoppedAnimation = false;
         items = arrayList;
@@ -172,7 +177,7 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
         } else if(viewType == TYPE_ITEM) {
             View v = mInflater.inflate(R.layout.rowlayout, parent, false);
             CompressedItemViewHolder vh = new CompressedItemViewHolder(v);
-            ImageButton about = (ImageButton) v.findViewById(R.id.properties);
+            ImageButton about = v.findViewById(R.id.properties);
             about.setVisibility(View.INVISIBLE);
             return vh;
         } else {
@@ -185,6 +190,12 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
         if (!stoppedAnimation) {
             animate(holder);
         }
+
+        boolean enableMarquee = sharedPrefs.getBoolean(
+                PreferencesConstants.PREFERENCE_ENABLE_MARQUEE_FILENAME, true);
+        holder.txtTitle.setEllipsize(enableMarquee ?
+                TextUtils.TruncateAt.MARQUEE :
+                TextUtils.TruncateAt.MIDDLE);
 
         final CompressedObjectParcelable rowItem = items.get(position);
         GradientDrawable gradientDrawable = (GradientDrawable) holder.genericIcon.getBackground();
@@ -205,28 +216,20 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
         } else {
             GlideApp.with(compressedExplorerFragment).load(rowItem.iconData.image).into(holder.genericIcon);
 
-            final StringBuilder stringBuilder = new StringBuilder(rowItem.name);
             if (compressedExplorerFragment.showLastModified)
-                holder.date.setText(Utils.getDate(rowItem.date, compressedExplorerFragment.year));
+                holder.date.setText(Utils.getDate(rowItem.date));
             if (rowItem.directory) {
                 holder.genericIcon.setImageDrawable(folder);
-                gradientDrawable.setColor(Color.parseColor(compressedExplorerFragment.iconskin));
-                if (stringBuilder.toString().length() > 0) {
-                    stringBuilder.deleteCharAt(rowItem.name.length() - 1);
-                    try {
-                        holder.txtTitle.setText(stringBuilder.toString().substring(stringBuilder.toString().lastIndexOf("/") + 1));
-                    } catch (Exception e) {
-                        holder.txtTitle.setText(rowItem.name.substring(0, rowItem.name.lastIndexOf("/")));
-                    }
-                }
+                gradientDrawable.setColor(compressedExplorerFragment.iconskin);
+                holder.txtTitle.setText(rowItem.name);
             } else {
                 if (compressedExplorerFragment.showSize)
                     holder.txtDesc.setText(Formatter.formatFileSize(context, rowItem.size));
-                holder.txtTitle.setText(rowItem.name.substring(rowItem.name.lastIndexOf("/") + 1));
+                holder.txtTitle.setText(rowItem.path.substring(rowItem.path.lastIndexOf("/") + 1));
                 if (compressedExplorerFragment.coloriseIcons) {
                     ColorUtils.colorizeIcons(context, rowItem.filetype, gradientDrawable,
-                            Color.parseColor(compressedExplorerFragment.iconskin));
-                } else gradientDrawable.setColor(Color.parseColor(compressedExplorerFragment.iconskin));
+                            compressedExplorerFragment.iconskin);
+                } else gradientDrawable.setColor(compressedExplorerFragment.iconskin);
             }
         }
 
@@ -263,12 +266,9 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
                 if (compressedExplorerFragment.selection) {
                     toggleChecked(position, holder.checkImageView);
                 } else {
-                    final StringBuilder stringBuilder = new StringBuilder(rowItem.name);
-                    if (rowItem.directory)
-                        stringBuilder.deleteCharAt(rowItem.name.length() - 1);
-
                     if (rowItem.directory) {
-                        compressedExplorerFragment.changePath(stringBuilder.toString());
+                        String newPath = rowItem.path.substring(0, rowItem.path.length() - 1);
+                        compressedExplorerFragment.changePath(newPath);
                     } else {
                         String fileName = compressedExplorerFragment.compressedFile.getName().substring(0,
                                 compressedExplorerFragment.compressedFile.getName().lastIndexOf("."));
@@ -277,7 +277,7 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
 
                         HybridFileParcelable file = new HybridFileParcelable(archiveCacheDirPath
                                 + CompressedHelper.SEPARATOR
-                                + rowItem.name.replaceAll("\\\\", CompressedHelper.SEPARATOR));
+                                + rowItem.path.replaceAll("\\\\", CompressedHelper.SEPARATOR));
                         file.setMode(OpenMode.FILE);
                         // this file will be opened once service finishes up it's extraction
                         compressedExplorerFragment.files.add(file);
@@ -285,10 +285,10 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
                         compressedExplorerFragment.isOpen = true;
 
                         Toast.makeText(compressedExplorerFragment.getContext(),
-                                compressedExplorerFragment.getContext().getResources().getString(R.string.please_wait),
+                                compressedExplorerFragment.getContext().getString(R.string.please_wait),
                                 Toast.LENGTH_SHORT).show();
                         decompressor.decompress(compressedExplorerFragment.getActivity().getExternalCacheDir().getPath(),
-                                new String[]{rowItem.name});
+                                new String[]{rowItem.path});
                     }
                 }
             }
@@ -304,11 +304,23 @@ public class CompressedExplorerAdapter extends RecyclerView.Adapter<CompressedIt
     public void onViewDetachedFromWindow(CompressedItemViewHolder holder) {
         super.onViewAttachedToWindow(holder);
         holder.rl.clearAnimation();
+        holder.txtTitle.setSelected(false);
+    }
+
+    @Override
+    public void onViewAttachedToWindow(CompressedItemViewHolder holder) {
+        super.onViewAttachedToWindow(holder);
+        boolean enableMarqueeFilename = sharedPrefs.getBoolean(
+                PreferencesConstants.PREFERENCE_ENABLE_MARQUEE_FILENAME, true);
+        if (enableMarqueeFilename) {
+            AnimUtils.marqueeAfterDelay(2000, holder.txtTitle);
+        }
     }
 
     @Override
     public boolean onFailedToRecycleView(CompressedItemViewHolder holder) {
         holder.rl.clearAnimation();
+        holder.txtTitle.setSelected(false);
         return super.onFailedToRecycleView(holder);
     }
 

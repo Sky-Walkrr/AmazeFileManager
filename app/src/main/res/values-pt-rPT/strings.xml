@@ -22,7 +22,6 @@
   <string name="drawer_open">Abrir menu de navegação</string>
   <string name="drawer_close">Fechar menu de navegação</string>
     <string name="icon">ícone</string>
-    <string name="storage">Armazenamento</string>
     <string name="apps">Gestor de aplicações</string>
   <string name="ftp">Servidor FTP</string>
     <string name="setting">Definições</string>
@@ -246,7 +245,7 @@
   <string name="grant">Conceder</string>
   <string name="grantper">Conceder permissão</string>
   <string name="grantfailed">Permissão não concedida</string>
-  <string name="granttext">Tem que permitir o acesso ao armazenamento para continuar. Ao fechar este diálogo, fecha a aplicação.</string>
+  <string name="grant_storage_permission">Tem que permitir o acesso ao armazenamento para continuar. Ao fechar este diálogo, fecha a aplicação.</string>
   <string name="operationunsuccesful">Operação não efetuada</string>
   <string name="creatingfile">A criar ficheiro</string>
   <string name="creatingfolder">A criar pasta</string>

@@ -1,3 +1,25 @@
+/*
+ * Utils.java
+ *
+ * Copyright (C) 2017-2018 Emmanuel Messulam <emmanuelbendavid@gmail.com>, Vishal Nehra <vishalmeham2@gmail.com>,
+ * Raymond Lai <airwave209gt@gmail.com> and Contributors.
+ *
+ * This file is part of Amaze File Manager.
+ *
+ * Amaze File Manager is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.amaze.filemanager.utils;
 
 import android.app.Activity;
@@ -22,6 +44,8 @@ import com.amaze.filemanager.filesystem.HybridFileParcelable;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Contains useful functions and methods (NOTHING HERE DEALS WITH FILES)
@@ -36,11 +60,11 @@ public class Utils {
     private static final SimpleDateFormat DATE_NO_MINUTES = new SimpleDateFormat("MMM dd, yyyy");
     private static final SimpleDateFormat DATE_WITH_MINUTES = new SimpleDateFormat("MMM dd yyyy | KK:mm a");
     private static final SimpleDateFormat DATE_WITH_MINUTES_NEW = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//    private static final SimpleDateFormat DATE_WITH_MINUTES = new SimpleDateFormat("MMM dd yyyy | HH:mm");
     private static final String INPUT_INTENT_BLACKLIST_COLON = ";";
     private static final String INPUT_INTENT_BLACKLIST_PIPE = "\\|";
     private static final String INPUT_INTENT_BLACKLIST_AMP = "&&";
     private static final String INPUT_INTENT_BLACKLIST_DOTS = "\\.\\.\\.";
-
 
     //methods for fastscroller
     public static float clamp(float min, float max, float value) {
@@ -219,7 +243,7 @@ public class Utils {
             case GDRIVE:
             case ONEDRIVE:
             case BOX:
-                Toast.makeText(context, context.getResources().getString(R.string.smb_launch_error),
+                Toast.makeText(context, context.getString(R.string.smb_launch_error),
                         Toast.LENGTH_LONG).show();
                 return null;
             default:
@@ -244,4 +268,15 @@ public class Utils {
         return -1;
     }
 
+    /**
+     * Formats input to plain mm:ss format
+     *
+     * @param timerInSeconds duration in seconds
+     * @return time in mm:ss format
+     */
+    public static String formatTimer(long timerInSeconds) {
+        final long min = TimeUnit.SECONDS.toMinutes(timerInSeconds);
+        final long sec = TimeUnit.SECONDS.toSeconds(timerInSeconds - TimeUnit.MINUTES.toSeconds(min));
+        return String.format("%02d:%02d", min, sec);
+    }
 }

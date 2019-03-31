@@ -18,6 +18,15 @@
     -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/my_customization">
+        <com.amaze.filemanager.ui.views.preference.CheckBox
+            android:key="auto_rename"
+            android:defaultValue="false"
+            android:title="@string/auto_rename"/>
+        <Preference
+            android:key="auto_rename_suffix"
+            android:title="@string/auto_rename_default_suffix"/>
+    </PreferenceCategory>
     <PreferenceCategory android:title="@string/ui">
         <Preference
             android:key="theme"

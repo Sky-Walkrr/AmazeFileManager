@@ -4,8 +4,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 
-import com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants;
-
+import static com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants.PREFERENCE_AUTO_RENAME;
 import static com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants.PREFERENCE_BOOKMARKS_ADDED;
 import static com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants.PREFERENCE_CHANGEPATHS;
 import static com.amaze.filemanager.fragments.preference_fragments.PreferencesConstants.PREFERENCE_COLORED_NAVIGATION;
@@ -50,6 +49,10 @@ public class PreferenceActivity extends BasicActivity {
         return getBoolean(PREFERENCE_ROOTMODE);
     }
 
+    public String getSPString(String key) {
+        return sharedPrefs.getString(key, "");
+    }
+
     public boolean getBoolean(String key) {
         boolean defaultValue;
 
@@ -62,6 +65,7 @@ public class PreferenceActivity extends BasicActivity {
             case PREFERENCE_COLORED_NAVIGATION:
             case PREFERENCE_TEXTEDITOR_NEWSTACK:
             case PREFERENCE_CHANGEPATHS:
+            case PREFERENCE_AUTO_RENAME:
                 defaultValue = false;
                 break;
             case PREFERENCE_SHOW_FILE_SIZE:

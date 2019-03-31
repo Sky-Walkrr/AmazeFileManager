@@ -93,9 +93,9 @@ import com.amaze.filemanager.filesystem.HybridFile;
 import com.amaze.filemanager.filesystem.HybridFileParcelable;
 import com.amaze.filemanager.filesystem.PasteHelper;
 import com.amaze.filemanager.filesystem.RootHelper;
-import com.amaze.filemanager.filesystem.usb.SingletonUsbOtg;
 import com.amaze.filemanager.filesystem.ssh.CustomSshJConfig;
 import com.amaze.filemanager.filesystem.ssh.SshConnectionPool;
+import com.amaze.filemanager.filesystem.usb.SingletonUsbOtg;
 import com.amaze.filemanager.filesystem.usb.UsbOtgRepresentation;
 import com.amaze.filemanager.fragments.AppsListFragment;
 import com.amaze.filemanager.fragments.CloudSheetFragment;
@@ -1063,10 +1063,30 @@ public class MainActivity extends PermissionsActivity implements SmbConnectionLi
                 String path = ma.getCurrentPath();
                 ArrayList<HybridFileParcelable> arrayList = new ArrayList<>(Arrays.asList(pasteHelper.paths));
                 boolean move = pasteHelper.operation == PasteHelper.OPERATION_CUT;
-                new PrepareCopyTask(ma, path, move, mainActivity, isRootExplorer())
-                        .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, arrayList);
-                pasteHelper = null;
-                invalidatePasteButton(item);
+
+                // If enable auto-rename, we show a dialog to display rename operation...
+                String suffix = getSPString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX);
+                if (getBoolean(PreferencesConstants.PREFERENCE_AUTO_RENAME) && arrayList.size() == 1 &&
+                        new File(arrayList.get(0).getPath()).isFile() && !suffix.isEmpty()) {
+                    String newFileName;
+                    newFileName = arrayList.get(0).getName() + suffix;
+                    MaterialDialog.Builder inputBuilder = new MaterialDialog.Builder(this);
+                    inputBuilder.theme(getAppTheme().getMaterialDialogTheme());
+                    inputBuilder.title(R.string.auto_rename_default_suffix);
+                    inputBuilder.input("", newFileName, false, (d, input) -> {
+                        arrayList.get(0).setName(input.toString());
+                        new PrepareCopyTask(ma, path, move, mainActivity, isRootExplorer())
+                                .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, arrayList);
+                        pasteHelper = null;
+                        invalidatePasteButton(item);
+                    });
+                    inputBuilder.build().show();
+                } else {
+                    new PrepareCopyTask(ma, path, move, mainActivity, isRootExplorer())
+                            .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, arrayList);
+                    pasteHelper = null;
+                    invalidatePasteButton(item);
+                }
                 break;
             case R.id.extract:
                 Fragment fragment1 = getFragmentAtFrame();

@@ -16,6 +16,11 @@ public class PreferencesConstants {
     public static final String FRAGMENT_FEEDBACK = "feedback";
     //END fragments
 
+    // START Custom preference constants
+    public static final String PREFERENCE_AUTO_RENAME = "auto_rename";
+    public static final String PREFERENCE_AUTO_RENAME_SUFFIX = "auto_rename_suffix";
+    // END Custom preference constants
+
     //START preferences.xml constants
     public static final String PREFERENCE_INTELLI_HIDE_TOOLBAR = "intelliHideToolbar";
     public static final String PREFERENCE_SHOW_FILE_SIZE = "showFileSize";

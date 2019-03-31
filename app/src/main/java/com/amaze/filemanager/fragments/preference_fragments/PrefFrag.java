@@ -68,7 +68,7 @@ public class PrefFrag extends PreferenceFragment implements Preference.OnPrefere
             PreferencesConstants.PREFERENCE_SHOW_HIDDENFILES, PreferencesConstants.FRAGMENT_FEEDBACK,
             PreferencesConstants.FRAGMENT_ABOUT, PreferencesConstants.FRAGMENT_COLORS,
             PreferencesConstants.FRAGMENT_FOLDERS, PreferencesConstants.FRAGMENT_QUICKACCESSES,
-            PreferencesConstants.FRAGMENT_ADVANCED_SEARCH};
+            PreferencesConstants.FRAGMENT_ADVANCED_SEARCH, PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX};
 
     private UtilitiesProvider utilsProvider;
     private SharedPreferences sharedPref;
@@ -155,6 +155,16 @@ public class PrefFrag extends PreferenceFragment implements Preference.OnPrefere
         MaterialDialog.Builder builder;
 
         switch (preference.getKey()) {
+            case PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX:
+                String value = sharedPref.getString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX, "");
+                builder = new MaterialDialog.Builder(getActivity());
+                builder.theme(utilsProvider.getAppTheme().getMaterialDialogTheme());
+                builder.title(R.string.auto_rename_default_suffix);
+                builder.input("eg: .jpg", value, true, (dialog, input) ->
+                        sharedPref.edit().putString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX,
+                        input.toString()).apply());
+                builder.build().show();
+                return true;
             case PreferencesConstants.PREFERENCE_GRID_COLUMNS:
                 sort = getResources().getStringArray(R.array.columns);
                 builder = new MaterialDialog.Builder(getActivity());

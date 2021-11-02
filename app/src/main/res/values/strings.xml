@@ -652,5 +652,6 @@
     <string name="my_customization">自定义设置</string>
     <string name="auto_rename">自动重命名</string>
     <string name="auto_rename_default_suffix">自动重命名默认后缀，留空不追加</string>
+    <string name="quick_batch_selection">快速批量选中</string>
 </resources>
 

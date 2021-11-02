@@ -116,6 +116,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import jcifs.smb.SmbException;
 import jcifs.smb.SmbFile;
@@ -613,6 +614,12 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
 
                 }
             }
+            // Show quickBatchSelection menu when more than 1 item selected
+            if (positions.size() > 1) {
+                showOption(R.id.quickBatchSelection, menu);
+            } else {
+                hideOption(R.id.quickBatchSelection, menu);
+            }
 
             return true; // Return false if nothing is done
         }
@@ -752,6 +759,18 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
                 case R.id.changeMd5Batch:
                     for (int i = 0; i < checkedItems.size(); i++) {
                         changeMD5(checkedItems.get(i).generateBaseFile());
+                    }
+                    return true;
+                case R.id.quickBatchSelection:
+                    List<Integer> checkedIndexes = adapter.getCheckedItemsIndex();
+                    if (checkedIndexes.size() > 1) {
+                        int minIndex = Collections.min(checkedIndexes);
+                        int maxIndex = Collections.max(checkedIndexes);
+                        for (int i = minIndex; i < maxIndex; i++) {
+                            if (!checkedIndexes.contains(i)) {
+                                adapter.toggleChecked(i, null);
+                            }
+                        }
                     }
                     return true;
                 default:
@@ -1273,6 +1292,10 @@ public class MainFragment extends android.support.v4.app.Fragment implements Bot
         intent.putExtra(CopyService.TAG_COPY_MOVE, false);
         intent.putExtra(CopyService.TAG_CREATE_COPY_AUTO_NAMING, true);
         ServiceWatcherUtil.runService(getActivity(), intent);
+    }
+
+    public void quickBatchSelection() {
+
     }
 
     public void computeScroll() {

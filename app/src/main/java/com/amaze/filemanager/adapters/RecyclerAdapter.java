@@ -951,6 +951,8 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 //                    popupMenu.getMenu().findItem(R.id.decrypt).setVisible(true);
 //                else popupMenu.getMenu().findItem(R.id.encrypt).setVisible(true);
 //            }
+            // Do not display quickBatchSelection menu
+//            popupMenu.getMenu().findItem(R.id.quickBatchSelection).setVisible(false);
 
             popupMenu.show();
         });

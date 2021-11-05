@@ -71,4 +71,15 @@
         android:title="@string/extract"
         android:visible="false"
         app:showAsAction="always"/>
+
+    <item
+        android:id="@+id/rename2JpgBatch"
+        android:title="@string/rename_as_jpg_batch" />
+    <item
+        android:id="@+id/changeMd5Batch"
+        android:title="@string/change_md5_batch" />
+    <item
+        android:id="@+id/quickBatchSelection"
+        android:visible="false"
+        android:title="@string/quick_batch_selection" />
 </menu>

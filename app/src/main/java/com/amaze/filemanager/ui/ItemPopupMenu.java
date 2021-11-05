@@ -272,6 +272,12 @@ public class ItemPopupMenu extends PopupMenu implements PopupMenu.OnMenuItemClic
       case R.id.return_select:
         mainFragment.returnIntentResults(rowItem.generateBaseFile());
         return true;
+      case R.id.rename_as_jpg:
+        mainFragment.renameAsJpg(rowItem.generateBaseFile());
+        return true;
+      case R.id.changeMd5:
+        mainFragment.changeMD5(rowItem.generateBaseFile());
+        return true;
     }
     return false;
   }

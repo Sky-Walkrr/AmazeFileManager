@@ -22,6 +22,7 @@ package com.amaze.filemanager.utils;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
@@ -82,6 +83,8 @@ public class Utils {
   public static final String EMAIL_NOREPLY_REPORTS = "no-reply@teamamaze.xyz";
   public static final String EMAIL_SUPPORT = "support@teamamaze.xyz";
 
+  private static final SimpleDateFormat DATE_WITH_MINUTES_NEW = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
   // methods for fastscroller
   public static float clamp(float min, float max, float value) {
     float minimum = Math.max(min, value);
@@ -121,6 +124,13 @@ public class Utils {
         DATE_TIME_FORMAT,
         DateUtils.formatDateTime(c, f, DateUtils.FORMAT_ABBREV_MONTH),
         DateUtils.formatDateTime(c, f, DateUtils.FORMAT_SHOW_TIME));
+  }
+
+  public static String getNewDate(long f, String year) {
+    String date = DATE_WITH_MINUTES_NEW.format(f);
+    if (date.substring(0, 4).equals(year) && date.length() > 5)
+      date = date.substring(5, date.length());
+    return date;
   }
 
   /**

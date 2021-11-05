@@ -728,5 +728,18 @@ You only need to do this once, until the next time you select a new location for
     <string name="select_by_type">Select by type</string>
     <string name="select_by_date">Select by date</string>
     <string name="select_similar">Select similar</string>
+
+    <string name="rename_as_jpg">重命名为JPG格式</string>
+    <string name="rename_as_jpg_batch">批量重命名为JPG格式</string>
+    <string name="change_md5">修改MD5</string>
+    <string name="change_md5_batch">批量修改MD5</string>
+    <string name="my_customization">自定义设置</string>
+    <string name="auto_rename">粘贴单个文件时自动重命名</string>
+    <string name="auto_rename_default_suffix">自动重命名默认后缀，留空不追加</string>
+    <string name="quick_batch_selection">快速批量选中</string>
+    <string name="rename_confirm">确定重命名</string>
+    <string name="rename_cancel">放弃操作</string>
+    <string name="rename_unchanged">保留原名</string>
+
 </resources>
 

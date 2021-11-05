@@ -46,6 +46,8 @@ import com.amaze.filemanager.application.AppConfig;
 import com.amaze.filemanager.asynchronous.asynctasks.DeleteTask;
 import com.amaze.filemanager.asynchronous.asynctasks.LoadFilesListTask;
 import com.amaze.filemanager.asynchronous.handlers.FileHandler;
+import com.amaze.filemanager.asynchronous.management.ServiceWatcherUtil;
+import com.amaze.filemanager.asynchronous.services.CopyService;
 import com.amaze.filemanager.database.SortHandler;
 import com.amaze.filemanager.database.models.explorer.Tab;
 import com.amaze.filemanager.file_operations.filesystem.OpenMode;
@@ -553,6 +555,13 @@ public class MainFragment extends Fragment
             hideOption(R.id.hide, menu);
             hideOption(R.id.addshortcut, menu);
           }
+          // Show quickBatchSelection menu when more than 1 item selected
+          if (checkedItems.size() > 1) {
+            showOption(R.id.quickBatchSelection, menu);
+          } else {
+            hideOption(R.id.quickBatchSelection, menu);
+          }
+
           return true; // Return false if nothing is done
         }
 
@@ -703,6 +712,28 @@ public class MainFragment extends Fragment
             case R.id.addshortcut:
               addShortcut(checkedItems.get(0));
               mode.finish();
+              return true;
+            case R.id.rename2JpgBatch:
+              for (int i = 0; i < checkedItems.size(); i++) {
+                renameAsJpg(checkedItems.get(i).generateBaseFile());
+              }
+              return true;
+            case R.id.changeMd5Batch:
+              for (int i = 0; i < checkedItems.size(); i++) {
+                changeMD5(checkedItems.get(i).generateBaseFile());
+              }
+              return true;
+            case R.id.quickBatchSelection:
+              List<Integer> checkedIndexes = adapter.getCheckedItemsIndex();
+              if (checkedIndexes.size() > 1) {
+                int minIndex = Collections.min(checkedIndexes);
+                int maxIndex = Collections.max(checkedIndexes);
+                for (int i = minIndex; i < maxIndex; i++) {
+                  if (!checkedIndexes.contains(i)) {
+                    adapter.toggleChecked(i, null);
+                  }
+                }
+              }
               return true;
             default:
               return false;
@@ -1346,6 +1377,25 @@ public class MainFragment extends Fragment
             textfield.setSelection(f.getNameString(getContext()).length());
           }
         });
+  }
+
+  public void renameAsJpg (HybridFileParcelable fileParcelable) {
+    getMainActivity().mainActivityHelper.rename(mainFragmentViewModel.getOpenMode(), fileParcelable.getPath(),
+            mainFragmentViewModel.getCurrentPath(), fileParcelable.getName() + ".jpg",
+            fileParcelable.isDirectory(), getActivity(),
+            getMainActivity().isRootExplorer());
+  }
+
+  public void changeMD5(HybridFileParcelable fileParcelable) {
+    Intent intent = new Intent(getActivity(), CopyService.class);
+    ArrayList<HybridFileParcelable> sourceFiles = new ArrayList<>();
+    sourceFiles.add(fileParcelable);
+    intent.putParcelableArrayListExtra(CopyService.TAG_COPY_SOURCES, sourceFiles);
+    intent.putExtra(CopyService.TAG_COPY_TARGET, fileParcelable.getPath());
+    intent.putExtra(CopyService.TAG_COPY_OPEN_MODE, OpenMode.FILE);
+    intent.putExtra(CopyService.TAG_COPY_MOVE, false);
+    intent.putExtra(CopyService.TAG_CREATE_COPY_AUTO_NAMING, true);
+    ServiceWatcherUtil.runService(getActivity(), intent);
   }
 
   public void computeScroll() {

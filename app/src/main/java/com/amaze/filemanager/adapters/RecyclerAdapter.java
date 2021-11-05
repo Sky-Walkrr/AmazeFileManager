@@ -1281,6 +1281,7 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     if (rowItem.isDirectory) {
       popupMenu.getMenu().findItem(R.id.open_with).setVisible(false);
       popupMenu.getMenu().findItem(R.id.share).setVisible(false);
+      popupMenu.getMenu().findItem(R.id.rename_as_jpg).setVisible(false);
 
       if (mainFrag.getMainActivity().mReturnIntent) {
         popupMenu.getMenu().findItem(R.id.return_select).setVisible(true);
@@ -1304,11 +1305,12 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         || description.endsWith(fileExtension7zip))
       popupMenu.getMenu().findItem(R.id.ex).setVisible(true);
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-      if (description.endsWith(CryptUtil.CRYPT_EXTENSION))
-        popupMenu.getMenu().findItem(R.id.decrypt).setVisible(true);
-      else popupMenu.getMenu().findItem(R.id.encrypt).setVisible(true);
-    }
+    // I don't need encrypt/decrypt
+//    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+//      if (description.endsWith(CryptUtil.CRYPT_EXTENSION))
+//        popupMenu.getMenu().findItem(R.id.decrypt).setVisible(true);
+//      else popupMenu.getMenu().findItem(R.id.encrypt).setVisible(true);
+//    }
 
     popupMenu.show();
   }

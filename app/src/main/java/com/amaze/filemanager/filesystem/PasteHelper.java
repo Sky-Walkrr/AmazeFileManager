@@ -20,14 +20,17 @@
 
 package com.amaze.filemanager.filesystem;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
 
+import com.afollestad.materialdialogs.MaterialDialog;
 import com.amaze.filemanager.R;
 import com.amaze.filemanager.asynchronous.asynctasks.PrepareCopyTask;
 import com.amaze.filemanager.ui.activities.MainActivity;
 import com.amaze.filemanager.ui.fragments.MainFragment;
+import com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants;
 import com.amaze.filemanager.utils.Utils;
 import com.google.android.material.snackbar.BaseTransientBottomBar;
 import com.google.android.material.snackbar.Snackbar;
@@ -158,22 +161,58 @@ public final class PasteHelper implements Parcelable {
                         BaseTransientBottomBar.LENGTH_INDEFINITE,
                         R.string.paste,
                         () -> {
-                          final MainFragment mainFragment =
-                              Objects.requireNonNull(mainActivity.getCurrentMainFragment());
-                          String path = mainFragment.getCurrentPath();
-                          ArrayList<HybridFileParcelable> arrayList =
-                              new ArrayList<>(Arrays.asList(paths));
-                          boolean move = operation == PasteHelper.OPERATION_CUT;
-                          new PrepareCopyTask(
-                                  path,
-                                  move,
-                                  mainActivity,
-                                  mainActivity.isRootExplorer(),
-                                  mainFragment.getMainFragmentViewModel().getOpenMode())
-                              .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, arrayList);
-                          dismissSnackbar(true);
-                        },
-                        () -> dismissSnackbar(true));
+                            final MainFragment mainFragment =
+                                    Objects.requireNonNull(mainActivity.getCurrentMainFragment());
+                            String path = mainFragment.getCurrentPath();
+                            ArrayList<HybridFileParcelable> arrayList =
+                                    new ArrayList<>(Arrays.asList(paths));
+                            boolean move = operation == PasteHelper.OPERATION_CUT;
+                            // If enable auto-rename, we show a dialog to display rename operation...
+                            String suffix = mainActivity.getSPString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX);
+                            if (mainActivity.getBoolean(PreferencesConstants.PREFERENCE_AUTO_RENAME) && arrayList.size() == 1 &&
+                                    new File(arrayList.get(0).getPath()).isFile() && !suffix.isEmpty()) {
+                                String newFileName;
+                                newFileName = arrayList.get(0).getName() + suffix;
+                                MaterialDialog.Builder inputBuilder = new MaterialDialog.Builder(mainActivity);
+                                inputBuilder.theme(mainActivity.getAppTheme().getMaterialDialogTheme());
+                                inputBuilder.title(R.string.auto_rename);
+                                inputBuilder.positiveText(R.string.rename_confirm);
+                                inputBuilder.negativeText(R.string.rename_cancel);
+                                inputBuilder.neutralText(R.string.rename_unchanged);
+                                inputBuilder.onNeutral((d, input) -> {
+                                    new PrepareCopyTask(
+                                            path,
+                                            move,
+                                            mainActivity,
+                                            mainActivity.isRootExplorer(),
+                                            mainFragment.getMainFragmentViewModel().getOpenMode())
+                                            .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, arrayList);
+                                    dismissSnackbar(true);
+                                });
+                                inputBuilder.input("", newFileName, false, (d, input) -> {
+                                    arrayList.get(0).setName(input.toString());
+                                    new PrepareCopyTask(
+                                            path,
+                                            move,
+                                            mainActivity,
+                                            mainActivity.isRootExplorer(),
+                                            mainFragment.getMainFragmentViewModel().getOpenMode())
+                                            .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, arrayList);
+                                    dismissSnackbar(true);
+                                });
+
+                                inputBuilder.build().show();
+                            } else {
+                                new PrepareCopyTask(
+                                        path,
+                                        move,
+                                        mainActivity,
+                                        mainActivity.isRootExplorer(),
+                                        mainFragment.getMainFragmentViewModel().getOpenMode())
+                                        .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, arrayList);
+                                dismissSnackbar(true);
+                            }
+                        }, () -> dismissSnackbar(true));
               }
 
               @Override

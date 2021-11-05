@@ -17,7 +17,7 @@
     <dimen name="fab_height">56dp</dimen>
     <dimen name="sixty_four">64dp</dimen>
     <dimen name="minimal_row_height">100dp</dimen>
-    <dimen name="minimal_row_size">72dp</dimen>
+    <dimen name="minimal_row_size">60dp</dimen>
     <dimen name="drag_icon_size">144dp</dimen>
     <dimen name="minimal_icon_size">40dp</dimen>
     <dimen name="minimal_icon_parent_width">56dp</dimen>
@@ -59,4 +59,6 @@
     <dimen name="dialogPreferredPadding">24dp</dimen>
 
     <dimen name="zero_dp">0dp</dimen>
+
+    <dimen name="list_header_top_bottom_padding">8dp</dimen>
 </resources>

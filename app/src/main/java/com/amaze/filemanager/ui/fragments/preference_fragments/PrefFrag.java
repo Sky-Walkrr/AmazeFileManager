@@ -83,8 +83,9 @@ public class PrefFrag extends PreferenceFragmentCompat
     PreferencesConstants.FRAGMENT_ADVANCED_SEARCH,
     PreferencesConstants.PREFERENCE_ZIP_EXTRACT_PATH,
     PreferencesConstants.PREFERENCE_CLEAR_OPEN_FILE,
-    PreferencesConstants.PREFERENCE_DRAG_AND_DROP_PREFERENCE
-  };
+    PreferencesConstants.PREFERENCE_DRAG_AND_DROP_PREFERENCE,
+    PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX
+};
 
   private UtilitiesProvider utilsProvider;
   private SharedPreferences sharedPref;
@@ -184,6 +185,16 @@ public class PrefFrag extends PreferenceFragmentCompat
     MaterialDialog.Builder dragDialogBuilder;
 
     switch (preference.getKey()) {
+      case PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX:
+        String value = sharedPref.getString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX, "");
+        builder = new MaterialDialog.Builder(getActivity());
+        builder.theme(utilsProvider.getAppTheme().getMaterialDialogTheme());
+        builder.title(R.string.auto_rename_default_suffix);
+        builder.input("eg: .jpg", value, true, (dialog, input) ->
+                sharedPref.edit().putString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX,
+                        input.toString()).apply());
+        builder.build().show();
+        return true;
       case PreferencesConstants.PREFERENCE_CLEAR_OPEN_FILE:
         OpenFileDialogFragment.Companion.clearPreferences(sharedPref);
         AppConfig.toast(getActivity(), getActivity().getString(R.string.done));

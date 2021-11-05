@@ -110,4 +110,9 @@ public class PreferencesConstants {
   public static final int PREFERENCE_DRAG_TO_MOVE_COPY = 2;
   public static final String PREFERENCE_DRAG_REMEMBER_COPY = "copy";
   public static final String PREFERENCE_DRAG_REMEMBER_MOVE = "move";
+
+  // START Custom preference constants
+  public static final String PREFERENCE_AUTO_RENAME = "auto_rename";
+  public static final String PREFERENCE_AUTO_RENAME_SUFFIX = "auto_rename_suffix";
+  // END Custom preference constants
 }

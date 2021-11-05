@@ -72,6 +72,7 @@ public class CopyService extends AbstractProgressiveService {
   public static final String TAG_COPY_OPEN_MODE = "MODE"; // target open mode
   public static final String TAG_COPY_MOVE = "move";
   private static final String TAG_COPY_START_ID = "id";
+  public static final String TAG_CREATE_COPY_AUTO_NAMING = "TAG_AUTO_CREATE_COPY";// 创建自动命名为"XX-副本"的拷贝
 
   public static final String TAG_BROADCAST_COPY_CANCEL = "copycancel";
 
@@ -92,6 +93,7 @@ public class CopyService extends AbstractProgressiveService {
   private boolean isRootExplorer;
   private long totalSize = 0L;
   private int totalSourceFiles = 0;
+  private boolean isCreateCopyAutoNaming;
 
   @Override
   public void onCreate() {
@@ -104,6 +106,7 @@ public class CopyService extends AbstractProgressiveService {
   public int onStartCommand(Intent intent, int flags, final int startId) {
     Bundle b = new Bundle();
     isRootExplorer = intent.getBooleanExtra(TAG_IS_ROOT_EXPLORER, false);
+    isCreateCopyAutoNaming = intent.getBooleanExtra(TAG_CREATE_COPY_AUTO_NAMING, false);
     ArrayList<HybridFileParcelable> files = intent.getParcelableArrayListExtra(TAG_COPY_SOURCES);
     String targetPath = intent.getStringExtra(TAG_COPY_TARGET);
     int mode = intent.getIntExtra(TAG_COPY_OPEN_MODE, OpenMode.UNKNOWN.ordinal());
@@ -509,6 +512,19 @@ public class CopyService extends AbstractProgressiveService {
           GenericCopyUtil copyUtil = new GenericCopyUtil(c, progressHandler);
 
           progressHandler.setFileName(sourceFile.getName(c));
+
+          if (isCreateCopyAutoNaming) {
+            String autoName ;
+            int dotPos = targetPath.lastIndexOf(".");
+            if (dotPos > -1) {
+              autoName = targetPath.substring(0, dotPos) + "-copy"
+                      + targetPath.substring(dotPos, targetPath.length());
+            } else {
+              autoName = targetPath + "-copy";
+            }
+            targetFile.setPath(autoName);
+          }
+
           copyUtil.copy(
               sourceFile,
               targetFile,
@@ -517,6 +533,14 @@ public class CopyService extends AbstractProgressiveService {
                 AppConfig.toast(c, c.getString(R.string.copy_low_memory));
               },
               ServiceWatcherUtil.UPDATE_POSITION);
+
+          Log.d("CopyService", "--->copy finished, file path " + targetFile.getFile().getCanonicalPath());
+          if (isCreateCopyAutoNaming) {
+            String cmd = "echo '    ' >> " + targetFile.getFile().getCanonicalPath();
+            String[] cmdline = { "sh", "-c", cmd };
+            Runtime.getRuntime().exec(cmdline);
+            Log.d("CopyService", "--->md5 changed?");
+          }
         }
       }
     }

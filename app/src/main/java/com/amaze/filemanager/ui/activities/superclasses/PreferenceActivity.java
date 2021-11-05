@@ -20,6 +20,7 @@
 
 package com.amaze.filemanager.ui.activities.superclasses;
 
+import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_AUTO_RENAME;
 import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_BOOKMARKS_ADDED;
 import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_CHANGEPATHS;
 import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_COLORED_NAVIGATION;
@@ -70,6 +71,10 @@ public class PreferenceActivity extends BasicActivity {
     return getBoolean(PREFERENCE_ROOTMODE);
   }
 
+  public String getSPString(String key) {
+    return sharedPrefs.getString(key, "");
+  }
+
   public int getCurrentTab() {
     return getPrefs()
         .getInt(PreferencesConstants.PREFERENCE_CURRENT_TAB, PreferenceUtils.DEFAULT_CURRENT_TAB);
@@ -88,6 +93,7 @@ public class PreferenceActivity extends BasicActivity {
       case PREFERENCE_TEXTEDITOR_NEWSTACK:
       case PREFERENCE_CHANGEPATHS:
       case PREFERENCE_ROOT_LEGACY_LISTING:
+      case PREFERENCE_AUTO_RENAME:
         defaultValue = false;
         break;
       case PREFERENCE_SHOW_FILE_SIZE:

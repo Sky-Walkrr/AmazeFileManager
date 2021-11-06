@@ -49,6 +49,11 @@ public class HybridFileParcelable extends HybridFile implements Parcelable {
   private String link = "";
   private Uri fullUri = null;
 
+
+  // 比较复制／剪切 前后文件的 size 大小
+  private long srcSize;
+  private long destSize;
+
   public HybridFileParcelable(String path) {
     super(OpenMode.FILE, path);
   }
@@ -141,6 +146,23 @@ public class HybridFileParcelable extends HybridFile implements Parcelable {
     this.permission = permission;
   }
 
+
+  public long getSrcSize() {
+    return srcSize;
+  }
+
+  public void setSrcSize(long srcSize) {
+    this.srcSize = srcSize;
+  }
+
+  public long getDestSize() {
+    return destSize;
+  }
+
+  public void setDestSize(long destSize) {
+    this.destSize = destSize;
+  }
+
   @Nullable
   public Uri getFullUri() {
     return DOCUMENT_FILE.equals(mode) ? fullUri : null;
@@ -163,6 +185,8 @@ public class HybridFileParcelable extends HybridFile implements Parcelable {
     name = in.readString();
     date = in.readLong();
     size = in.readLong();
+    srcSize = in.readLong();
+    destSize = in.readLong();
     isDirectory = in.readByte() != 0;
   }
 
@@ -192,6 +216,8 @@ public class HybridFileParcelable extends HybridFile implements Parcelable {
     dest.writeString(name);
     dest.writeLong(date);
     dest.writeLong(size);
+    dest.writeLong(srcSize);
+    dest.writeLong(destSize);
     dest.writeByte((byte) (isDirectory ? 1 : 0));
   }
 
@@ -207,12 +233,19 @@ public class HybridFileParcelable extends HybridFile implements Parcelable {
         + ", size=["
         + size
         + "]"
+        + ", srcsSize=["
+        + srcSize
+        + "]"
+        + ", destSize=["
+        + destSize
+        + "]"
         + ", date=["
         + date
         + "]"
         + ", permission=["
         + permission
-        + "]";
+        + "]"
+            ;
   }
 
   @Override
@@ -231,6 +264,8 @@ public class HybridFileParcelable extends HybridFile implements Parcelable {
     result = 37 * result + (isDirectory ? 1 : 0);
     result = 37 * result + (int) (size ^ size >>> 32);
     result = 37 * result + (int) (date ^ date >>> 32);
+    result = 37 * result + (int)(srcSize ^ srcSize >>> 32);
+    result = 37 * result + (int)(destSize ^ destSize >>> 32);
     return result;
   }
 }

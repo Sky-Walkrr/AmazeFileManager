@@ -729,8 +729,12 @@ You only need to do this once, until the next time you select a new location for
     <string name="select_by_date">Select by date</string>
     <string name="select_similar">Select similar</string>
 
-    <string name="rename_as_jpg">重命名为JPG格式</string>
+    <string name="rename_suffix">重命名后缀</string>
+    <string name="rename_suffix_to">重命名后缀为 %s</string>
     <string name="rename_as_jpg_batch">批量重命名为JPG格式</string>
+    <string name="rename_suffix_batch">批量重命名后缀</string>
+    <string name="rename_suffix_batch_to">批量重命名后缀为 %s</string>
+    <string name="invalid_suffix_input">输入格式有误，请以 . 开头</string>
     <string name="change_md5">修改MD5</string>
     <string name="change_md5_batch">批量修改MD5</string>
     <string name="my_customization">自定义设置</string>

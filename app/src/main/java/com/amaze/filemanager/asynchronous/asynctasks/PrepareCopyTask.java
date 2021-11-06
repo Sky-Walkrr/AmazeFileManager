@@ -163,6 +163,8 @@ public class PrepareCopyTask
         file -> {
           for (HybridFileParcelable j : filesToCopy) {
             if (file.getName(context.get()).equals((j).getName(context.get()))) {
+              j.setSrcSize(j.getSize());
+              j.setDestSize(file.getSize());
               conflictingFiles.add(j);
             }
           }
@@ -217,7 +219,14 @@ public class PrepareCopyTask
     dialogBuilder.customView(copyDialogBinding.getRoot(), true);
 
     // textView
-    copyDialogBinding.fileNameText.setText(conflictingFiles.get(counter).getName(context.get()));
+    HybridFileParcelable hfp = conflictingFiles.get(counter);
+    String nameInfo = hfp.getName();
+    long srcSize = hfp.getSrcSize();
+    long destSize = hfp.getDestSize();
+    String sizeInfo = srcSize == destSize ? String.format("（文件大小相同：%d bytes）", srcSize) :
+            String.format("（src: %d bytes, dest: %d bytes）", srcSize, destSize);
+    copyDialogBinding.fileNameText.setText(nameInfo + sizeInfo);
+//    copyDialogBinding.fileNameText.setText(conflictingFiles.get(counter).getName(context.get()));
 
     // checkBox
     final CheckBox checkBox = copyDialogBinding.checkBox;

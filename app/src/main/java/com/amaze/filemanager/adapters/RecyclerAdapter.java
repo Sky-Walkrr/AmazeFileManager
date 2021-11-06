@@ -77,6 +77,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
@@ -1281,13 +1282,22 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     if (rowItem.isDirectory) {
       popupMenu.getMenu().findItem(R.id.open_with).setVisible(false);
       popupMenu.getMenu().findItem(R.id.share).setVisible(false);
-      popupMenu.getMenu().findItem(R.id.rename_as_jpg).setVisible(false);
+      popupMenu.getMenu().findItem(R.id.rename_suffix).setVisible(false);
 
       if (mainFrag.getMainActivity().mReturnIntent) {
         popupMenu.getMenu().findItem(R.id.return_select).setVisible(true);
       }
     } else {
       popupMenu.getMenu().findItem(R.id.book).setVisible(false);
+      // Hide or show batch-rename-suffix menu dynamically
+      String suffix = preferenceActivity.getSPString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX);
+      MenuItem item = popupMenu.getMenu().findItem(R.id.rename_suffix);
+      if (suffix.isEmpty()) {
+        item.setVisible(false);
+      } else {
+        item.setTitle(String.format(preferenceActivity.getString(R.string.rename_suffix_to), suffix));
+        item.setVisible(true);
+      }
     }
 
     if (description.endsWith(fileExtensionZip)

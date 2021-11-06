@@ -29,8 +29,8 @@
         android:id="@+id/rename"
         android:title="@string/rename" />
     <item
-        android:id="@+id/rename_as_jpg"
-        android:title="@string/rename_as_jpg"/>
+        android:id="@+id/rename_suffix"
+        android:title="@string/rename_suffix"/>
 
     <item
         android:id="@+id/changeMd5"

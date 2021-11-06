@@ -190,9 +190,18 @@ public class PrefFrag extends PreferenceFragmentCompat
         builder = new MaterialDialog.Builder(getActivity());
         builder.theme(utilsProvider.getAppTheme().getMaterialDialogTheme());
         builder.title(R.string.auto_rename_default_suffix);
-        builder.input("eg: .jpg", value, true, (dialog, input) ->
-                sharedPref.edit().putString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX,
-                        input.toString()).apply());
+        builder.input("eg: .jpg", value, true,
+                (dialog, input) -> {
+                  String str = input.toString();
+                  if (!str.isEmpty() && !str.startsWith(".")) {
+                    Toast.makeText(getActivity(), getActivity().getString(R.string.invalid_suffix_input),
+                            Toast.LENGTH_LONG).show();
+                  } else {
+                    sharedPref.edit().putString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX,
+                            str).apply();
+                  }
+                }
+        );
         builder.build().show();
         return true;
       case PreferencesConstants.PREFERENCE_CLEAR_OPEN_FILE:

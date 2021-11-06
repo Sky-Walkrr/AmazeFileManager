@@ -69,6 +69,7 @@ import com.amaze.filemanager.ui.dialogs.GeneralDialogCreation;
 import com.amaze.filemanager.ui.drag.RecyclerAdapterDragListener;
 import com.amaze.filemanager.ui.drag.TabFragmentBottomDragListener;
 import com.amaze.filemanager.ui.fragments.data.MainFragmentViewModel;
+import com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants;
 import com.amaze.filemanager.ui.icons.MimeTypes;
 import com.amaze.filemanager.ui.provider.UtilitiesProvider;
 import com.amaze.filemanager.ui.selection.SelectionPopupMenu;
@@ -410,6 +411,15 @@ public class MainFragment extends Fragment
           menu.findItem(R.id.delete).setIcon(icons.getDeleteDrawable());
           menu.findItem(R.id.all).setIcon(icons.getAllDrawable());
           */
+          // Hide or show batch-rename-suffix menu dynamically
+          MenuItem item = menu.findItem(R.id.renameSuffixBatch);
+          String suffix = getMainActivity().getSPString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX);
+          if (!suffix.isEmpty()) {
+            item.setTitle(String.format(getString(R.string.rename_suffix_batch_to), suffix));
+            item.setVisible(true);
+          } else {
+            item.setVisible(false);
+          }
         }
 
         // called when the action mode is created; startActionMode() was called
@@ -713,9 +723,10 @@ public class MainFragment extends Fragment
               addShortcut(checkedItems.get(0));
               mode.finish();
               return true;
-            case R.id.rename2JpgBatch:
+            case R.id.renameSuffixBatch:
+              String suffix = getMainActivity().getSPString(PreferencesConstants.PREFERENCE_AUTO_RENAME_SUFFIX);
               for (int i = 0; i < checkedItems.size(); i++) {
-                renameAsJpg(checkedItems.get(i).generateBaseFile());
+                renameSuffix(checkedItems.get(i).generateBaseFile(), suffix);
               }
               return true;
             case R.id.changeMd5Batch:
@@ -1379,9 +1390,9 @@ public class MainFragment extends Fragment
         });
   }
 
-  public void renameAsJpg (HybridFileParcelable fileParcelable) {
+  public void renameSuffix(HybridFileParcelable fileParcelable, String suffix) {
     getMainActivity().mainActivityHelper.rename(mainFragmentViewModel.getOpenMode(), fileParcelable.getPath(),
-            mainFragmentViewModel.getCurrentPath(), fileParcelable.getName() + ".jpg",
+            mainFragmentViewModel.getCurrentPath(), fileParcelable.getName() + suffix,
             fileParcelable.isDirectory(), getActivity(),
             getMainActivity().isRootExplorer());
   }

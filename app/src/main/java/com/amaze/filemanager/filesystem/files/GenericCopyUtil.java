@@ -99,7 +99,8 @@ public class GenericCopyUtil {
       throws IOException {
 
     ReadableByteChannel inChannel = null;
-    WritableByteChannel outChannel = null;
+    WritableByteChannel outChannelWb = null;
+    FileChannel outChannelFile = null;
     BufferedInputStream bufferedInputStream = null;
     BufferedOutputStream bufferedOutputStream = null;
 
@@ -204,8 +205,9 @@ public class GenericCopyUtil {
           if (lowOnMemory) {
             bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(file));
           } else {
-
-            outChannel = new RandomAccessFile(file, "rw").getChannel();
+            outChannelFile = new RandomAccessFile(file, "rw").getChannel();
+            Objects.requireNonNull(outChannelFile);
+            outChannelFile.truncate(0);// Fix the NOT totally overwritten issue when copy-paste. See https://github.com/TeamAmaze/AmazeFileManager/issues/2998
           }
         } else {
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -231,13 +233,14 @@ public class GenericCopyUtil {
       }
 
       if (bufferedOutputStream != null) {
-        outChannel = Channels.newChannel(bufferedOutputStream);
+        outChannelWb = Channels.newChannel(bufferedOutputStream);
+        Objects.requireNonNull(outChannelWb);
       }
 
       Objects.requireNonNull(inChannel);
-      Objects.requireNonNull(outChannel);
+//      Objects.requireNonNull(outChannel);
 
-      doCopy(inChannel, outChannel, updatePosition);
+      doCopy(inChannel, bufferedOutputStream != null ? outChannelWb : outChannelFile, updatePosition);
     } catch (IOException e) {
       e.printStackTrace();
       Log.d(getClass().getSimpleName(), "I/O Error!");
@@ -252,7 +255,8 @@ public class GenericCopyUtil {
 
       try {
         if (inChannel != null) inChannel.close();
-        if (outChannel != null) outChannel.close();
+        if (outChannelFile != null) outChannelFile.close();
+        if (outChannelWb != null) outChannelWb.close();
         if (bufferedInputStream != null) bufferedInputStream.close();
         if (bufferedOutputStream != null) bufferedOutputStream.close();
       } catch (IOException e) {

@@ -1420,7 +1420,7 @@ public class MainFragment extends Fragment
     sourceFiles.add(fileParcelable);
     intent.putParcelableArrayListExtra(CopyService.TAG_COPY_SOURCES, sourceFiles);
     intent.putExtra(CopyService.TAG_COPY_TARGET, fileParcelable.getPath());
-    intent.putExtra(CopyService.TAG_COPY_OPEN_MODE, OpenMode.FILE);
+    intent.putExtra(CopyService.TAG_COPY_OPEN_MODE, OpenMode.FILE.ordinal());
     intent.putExtra(CopyService.TAG_COPY_MOVE, false);
     intent.putExtra(CopyService.TAG_CREATE_COPY_AUTO_NAMING, true);
     ServiceWatcherUtil.runService(getActivity(), intent);

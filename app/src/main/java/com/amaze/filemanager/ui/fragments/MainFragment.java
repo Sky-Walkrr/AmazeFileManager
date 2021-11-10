@@ -482,7 +482,24 @@ public class MainFragment extends Fragment
           if (mainFragmentViewModel.getOpenMode() != OpenMode.FILE) {
             hideOption(R.id.addshortcut, menu);
             hideOption(R.id.compress, menu);
+            hideOption(R.id.renameSuffixBatch, menu);
+            hideOption(R.id.changeMd5Batch, menu);
             return true;
+          }
+
+          for (LayoutElementParcelable i : adapter.getCheckedItems()) {
+            if (i.isDirectory) {
+              hideOption(R.id.renameSuffixBatch, menu);
+              hideOption(R.id.changeMd5Batch, menu);
+              break;
+            }
+            showOption(R.id.renameSuffixBatch, menu);
+            showOption(R.id.changeMd5Batch, menu);
+          }
+
+          if (adapter.getCheckedItems().size() <= 1) {
+            hideOption(R.id.renameSuffixBatch, menu);
+            hideOption(R.id.changeMd5Batch, menu);
           }
 
           if (getMainActivity().mReturnIntent && SDK_INT >= JELLY_BEAN) {
@@ -740,7 +757,7 @@ public class MainFragment extends Fragment
                 int minIndex = Collections.min(checkedIndexes);
                 int maxIndex = Collections.max(checkedIndexes);
                 for (int i = minIndex; i < maxIndex; i++) {
-                  if (!checkedIndexes.contains(i)) {
+                  if (!checkedIndexes.contains(i) && adapter.getItemViewType(i) == RecyclerAdapter.TYPE_ITEM) {
                     adapter.toggleChecked(i, null);
                   }
                 }

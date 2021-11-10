@@ -1283,6 +1283,7 @@ public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       popupMenu.getMenu().findItem(R.id.open_with).setVisible(false);
       popupMenu.getMenu().findItem(R.id.share).setVisible(false);
       popupMenu.getMenu().findItem(R.id.rename_suffix).setVisible(false);
+      popupMenu.getMenu().findItem(R.id.changeMd5).setVisible(false);
 
       if (mainFrag.getMainActivity().mReturnIntent) {
         popupMenu.getMenu().findItem(R.id.return_select).setVisible(true);

@@ -41,6 +41,7 @@ import static com.amaze.filemanager.ui.fragments.preference_fragments.Preference
 import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_SHOW_THUMB;
 import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_TEXTEDITOR_NEWSTACK;
 import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_USE_CIRCULAR_IMAGES;
+import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_USE_MEDIA_STORE_API;
 import static com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants.PREFERENCE_VIEW;
 
 import com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants;
@@ -94,6 +95,7 @@ public class PreferenceActivity extends BasicActivity {
       case PREFERENCE_CHANGEPATHS:
       case PREFERENCE_ROOT_LEGACY_LISTING:
       case PREFERENCE_AUTO_RENAME:
+      case PREFERENCE_USE_MEDIA_STORE_API:
         defaultValue = false;
         break;
       case PREFERENCE_SHOW_FILE_SIZE:

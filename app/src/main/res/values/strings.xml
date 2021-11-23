@@ -744,6 +744,7 @@ You only need to do this once, until the next time you select a new location for
     <string name="rename_confirm">确定重命名</string>
     <string name="rename_cancel">放弃操作</string>
     <string name="rename_unchanged">保留原名</string>
+    <string name="use_media_store_api">使用 MediaStore API 打开媒体文件</string>
 
 </resources>
 

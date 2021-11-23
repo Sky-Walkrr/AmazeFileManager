@@ -26,6 +26,10 @@
         <Preference
             app:key="auto_rename_suffix"
             app:title="@string/auto_rename_default_suffix"/>
+        <com.amaze.filemanager.ui.views.preference.CheckBox
+            app:key="use_media_store_api"
+            app:defaultValue="false"
+            app:title="@string/use_media_store_api"/>
     </PreferenceCategory>
     <PreferenceCategory app:title="@string/ui">
         <Preference

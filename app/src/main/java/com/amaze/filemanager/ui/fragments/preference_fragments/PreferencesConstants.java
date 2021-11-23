@@ -114,5 +114,6 @@ public class PreferencesConstants {
   // START Custom preference constants
   public static final String PREFERENCE_AUTO_RENAME = "auto_rename";
   public static final String PREFERENCE_AUTO_RENAME_SUFFIX = "auto_rename_suffix";
+  public static final String PREFERENCE_USE_MEDIA_STORE_API = "use_media_store_api";// 使用 MediaStore 打开图片/音频/视频等，而不是用 FileProvider
   // END Custom preference constants
 }

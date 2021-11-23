@@ -50,6 +50,7 @@ import com.amaze.filemanager.ui.dialogs.GeneralDialogCreation;
 import com.amaze.filemanager.ui.dialogs.OpenFileDialogFragment;
 import com.amaze.filemanager.ui.dialogs.share.ShareTask;
 import com.amaze.filemanager.ui.fragments.preference_fragments.PreferencesConstants;
+import com.amaze.filemanager.ui.icons.Icons;
 import com.amaze.filemanager.ui.icons.MimeTypes;
 import com.amaze.filemanager.ui.theme.AppTheme;
 import com.amaze.filemanager.utils.DataUtils;
@@ -65,15 +66,20 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.database.Cursor;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.provider.BaseColumns;
+import android.provider.MediaStore;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -449,11 +455,108 @@ public class FileUtils {
     }
   }
 
+  //======Some old codes start
+  // Codes copied from commit 5f566360321c7ca735995c78143b140d7663cf07
+  // These codes work with MediaStore API
+  // 使用 MediaStore API 打开图片/音频/视频等媒体文件，而不是采用 FileProvider
+  // FileProvider 打开的文件是只读属性的，例如打开图片文件，选择 MIUI 的相册打开，是无法编辑的。
+  // 参考 https://stackoverflow.com/questions/55087971/fileprovider-vs-mediastore-content-uri 或者官方文档
+  // 19 年的代码还是使用 MediaStore 的，后来却使用了 FileProvider，这不符合我的使用习惯，所以加个开关吧。
+  private static final String INTERNAL_VOLUME = "internal";
+  public static final String EXTERNAL_VOLUME = "external";
+
+  private static final String EMULATED_STORAGE_SOURCE = System.getenv("EMULATED_STORAGE_SOURCE");
+  private static final String EMULATED_STORAGE_TARGET = System.getenv("EMULATED_STORAGE_TARGET");
+  private static final String EXTERNAL_STORAGE = System.getenv("EXTERNAL_STORAGE");
+  public static String normalizeMediaPath(String path) {
+    // Retrieve all the paths and check that we have this environment vars
+    if (TextUtils.isEmpty(EMULATED_STORAGE_SOURCE) ||
+            TextUtils.isEmpty(EMULATED_STORAGE_TARGET) ||
+            TextUtils.isEmpty(EXTERNAL_STORAGE)) {
+      return path;
+    }
+
+    // We need to convert EMULATED_STORAGE_SOURCE -> EMULATED_STORAGE_TARGET
+    if (path.startsWith(EMULATED_STORAGE_SOURCE)) {
+      path = path.replace(EMULATED_STORAGE_SOURCE, EMULATED_STORAGE_TARGET);
+    }
+    return path;
+  }
+  public static Uri fileToContentUri(Context context, File file) {
+    // Normalize the path to ensure media search
+    final String normalizedPath = normalizeMediaPath(file.getAbsolutePath());
+
+    // Check in external and internal storages
+    Uri uri = fileToContentUri(context, normalizedPath, file.isDirectory(), EXTERNAL_VOLUME);
+    if (uri != null) {
+      return uri;
+    }
+    uri = fileToContentUri(context, normalizedPath, file.isDirectory(), INTERNAL_VOLUME);
+    if (uri != null) {
+      return uri;
+    }
+    return null;
+  }
+
+  private static Uri fileToContentUri(Context context, String path, boolean isDirectory, String volume) {
+    final String where = MediaStore.MediaColumns.DATA + " = ?";
+    Uri baseUri;
+    String[] projection;
+    int mimeType = Icons.getTypeOfFile(path, isDirectory);
+
+    switch (mimeType) {
+      case Icons.IMAGE:
+        baseUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+        projection = new String[]{BaseColumns._ID};
+        break;
+      case Icons.VIDEO:
+        baseUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+        projection = new String[]{BaseColumns._ID};
+        break;
+      case Icons.AUDIO:
+        baseUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+        projection = new String[]{BaseColumns._ID};
+        break;
+      default:
+        baseUri = MediaStore.Files.getContentUri(volume);
+        projection = new String[]{BaseColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE};
+    }
+
+    ContentResolver cr = context.getContentResolver();
+    Cursor c = cr.query(baseUri, projection, where, new String[]{path}, null);
+    try {
+      if (c != null && c.moveToNext()) {
+        boolean isValid = false;
+        if (mimeType == Icons.IMAGE || mimeType == Icons.VIDEO || mimeType == Icons.AUDIO) {
+          isValid = true;
+        } else {
+          int type = c.getInt(c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE));
+          isValid = type != 0;
+        }
+
+        if (isValid) {
+          // Do not force to use content uri for no media files
+          long id = c.getLong(c.getColumnIndexOrThrow(BaseColumns._ID));
+          return Uri.withAppendedPath(baseUri, String.valueOf(id));
+        }
+      }
+    } finally {
+      if (c != null) {
+        c.close();
+      }
+    }
+    return null;
+  }
+  //======Some old codes end
+
   /** Method supports showing a UI to ask user to open a file without any extension/mime */
   public static void openWith(
       final File f, final PreferenceActivity activity, final boolean useNewStack) {
-    openWith(
-        FileProvider.getUriForFile(activity, activity.getPackageName(), f), activity, useNewStack);
+    if (activity.getBoolean(PreferencesConstants.PREFERENCE_USE_MEDIA_STORE_API)) {
+      openWith(fileToContentUri(activity, f), activity, useNewStack);
+    } else {
+      openWith(FileProvider.getUriForFile(activity, activity.getPackageName(), f), activity, useNewStack);
+    }
   }
 
   public static void openWith(
@@ -701,6 +804,7 @@ public class FileUtils {
   private static void openFileDialogFragmentFor(
       @NonNull File file, @NonNull MainActivity mainActivity, @NonNull String mimeType) {
     OpenFileDialogFragment.Companion.openFileOrShow(
+        mainActivity.getBoolean(PreferencesConstants.PREFERENCE_USE_MEDIA_STORE_API) ? fileToContentUri(mainActivity, file) :
         FileProvider.getUriForFile(mainActivity, mainActivity.getPackageName(), file),
         mimeType,
         false,

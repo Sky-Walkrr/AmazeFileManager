@@ -495,7 +495,7 @@ public class FileUtils {
     if (uri != null) {
       return uri;
     }
-    return null;
+    return Uri.fromFile(file);
   }
 
   private static Uri fileToContentUri(Context context, String path, boolean isDirectory, String volume) {
@@ -626,6 +626,7 @@ public class FileUtils {
                       uri, mimeType, useNewStack, activity, true);
                 }
               } catch (Exception e) {
+                Log.e(TAG, e.getMessage(), e);
                 Toast.makeText(activity, R.string.no_app_found, Toast.LENGTH_SHORT).show();
                 openWith(uri, activity, useNewStack);
               }
@@ -787,6 +788,7 @@ public class FileUtils {
       try {
         openFileDialogFragmentFor(f, mainActivity);
       } catch (Exception e) {
+        Log.e(TAG, e.getMessage(), e);
         Toast.makeText(
                 mainActivity, mainActivity.getString(R.string.no_app_found), Toast.LENGTH_LONG)
             .show();

@@ -28,7 +28,7 @@
             android:padding="@dimen/md_content_padding_top"
             android:text="@string/app_version"
             android:textColor="@android:color/white"
-            android:visibility="gone"
+            android:visibility="visible"
             android:textSize="@dimen/md_content_textsize"
             />
         <ImageView
